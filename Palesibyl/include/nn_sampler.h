@@ -14,9 +14,6 @@ public:
 	constexpr static const char		SamplerName[] = "injection" ;
 	constexpr static const bool		MustBeInputLayer = false ;	// 入力層でなければならないか？
 
-	constexpr static const size_t	UpSamplingScaleX = 1 ;
-	constexpr static const size_t	UpSamplingScaleY = 1 ;
-
 	// 入力チャネル数から行列へ入力する要素数計算
 	static inline size_t ConvChannelCount
 			( size_t zSrc, int xConv, int yConv, size_t xMatrix )
@@ -24,11 +21,11 @@ public:
 		return	zSrc ;
 	}
 	// 行列の出力サイズから実際の出力サイズを計算
-	static inline NNBufDim CalcOutputDim( const NNBufDim& dimSrc )
+	static inline NNBufDim CalcOutputDim( const NNBufDim& dimSrc, const NNSamplingParam& sp )
 	{
 		return	dimSrc ;
 	}
-	static inline size_t CalcOutputChannels( size_t nMatrixLines )
+	static inline size_t CalcOutputChannels( size_t nMatrixLines, const NNSamplingParam& sp )
 	{
 		return	nMatrixLines ;
 	}
@@ -40,21 +37,22 @@ public:
 	}
 	// 出力先座標とチャネルから行列の行番号を計算
 	static inline __NN_CUDA_DEV__ size_t SampleMatrixLine
-		( int xDst, int yDst, size_t zChannel, size_t zChannelCount )
+		( int xDst, int yDst, size_t zChannel, size_t zChannelCount, const NNSamplingParam& sp )
 	{
 		return	zChannel ;
 	}
 	// 行列への入力をサンプリング
 	static inline __NN_CUDA_DEV__ float Sample
 		( const float * pSrc, NNBufDim dimSrc,
-			int xSrc, int ySrc, size_t chSrc, int xConv )
+			int xSrc, int ySrc, size_t chSrc, const NNSamplingParam& sp )
 	{
 		return	(chSrc >= dimSrc.z) ? 1.0f :
 					pSrc[(ySrc * dimSrc.x + xSrc) * dimSrc.z + chSrc] ;
 	}
 	// 行列の出力をサンプリング
 	static inline __NN_CUDA_DEV__ float BackSample
-		( size_t chOut, const float * pSrc, NNBufDim dimSrc, int xSrc, int ySrc )
+		( size_t chOut, const float * pSrc, NNBufDim dimSrc,
+					int xSrc, int ySrc, const NNSamplingParam& sp )
 	{
 		return	(chOut >= dimSrc.z) ? 0.0f :
 					pSrc[(ySrc * dimSrc.x + xSrc) * dimSrc.z + chOut] ;
@@ -62,7 +60,8 @@ public:
 	// CPU での１サンプル行列計算（出力座標は出力チャネル操作のみに影響）
 	static inline void cpuMatrix
 		( float * pDst, int xDst, int yDst, const NNMatrix& matrix,
-			const float * pSrc, size_t nDepthwise, size_t iMatrixBias )
+			const float * pSrc, size_t nDepthwise,
+			size_t iMatrixBias, const NNSamplingParam& sp )
 	{
 		if ( nDepthwise <= 1 )
 		{
@@ -78,15 +77,13 @@ public:
 		( float * pDst, NNBufDim dimDst,
 			const float * pSrc, NNBufDim dimSrc,
 			const float * pMatrix,
-			size_t xMatrix, size_t yMatrix, size_t iMatrixBias, 
-			int xStride, int yStride, int xOffset, int yOffset,
-			int nDepthwise, int xConv, int yConv, cudaStream_t stream )
+			size_t xMatrix, size_t yMatrix, size_t iMatrixBias,
+			int nDepthwise, const NNSamplingParam& sp, cudaStream_t stream )
 	{
 		nncuda_Matrix_Clamp
 			( pDst, dimDst, pSrc, dimSrc,
 				pMatrix, xMatrix, yMatrix, iMatrixBias,
-				xStride, yStride, xOffset, yOffset,
-				nDepthwise, xConv, yConv, stream ) ;
+				nDepthwise, sp, stream ) ;
 	}
 	// CUDA での更新用行列勾配計算
 	static inline void cudaCalcMatrixGradient
@@ -95,15 +92,13 @@ public:
 			size_t xMatrix, size_t yMatrix, size_t iMatrixBias,
 			const float * pDelta, NNBufDim dimDelta,
 			const float * pSrc, NNBufDim dimSrc,
-			int xStride, int yStride, int xOffset, int yOffset,
-			int nDepthwise, int xConv, int yConv, cudaStream_t stream )
+			int nDepthwise, const NNSamplingParam& sp, cudaStream_t stream )
 	{
 		nncuda_CalcMatrixGradient_Clamp
 			( pGradient, dimGradient,
 				xGradientBlockSize, yGradientBlockSize,
 				xMatrix, yMatrix, iMatrixBias,
-				pDelta, dimDelta, pSrc, dimSrc,
-				xStride, yStride, xOffset, yOffset, xConv, yConv, stream ) ;
+				pDelta, dimDelta, pSrc, dimSrc, sp, stream ) ;
 	}
 	// CUDA でのδ逆伝播
 	static inline void cudaMatrixDeltaBack
@@ -111,13 +106,11 @@ public:
 			const float * pSrcDelta, NNBufDim dimSrcDelta,
 			const float * pMatrix,
 			int xMatrix, int yMatrix, size_t zSrcChannels,
-			int xStride, int yStride, int xOffset, int yOffset,
-			int nDepthwise, int xConv, int yConv, cudaStream_t stream )
+			int nDepthwise, const NNSamplingParam& sp, cudaStream_t stream )
 	{
 		nncuda_Matrix_DeltaBack_Injection
 			( pDstDelta, dimDstDelta, pSrcDelta, dimSrcDelta,
-				pMatrix, xMatrix, yMatrix, zSrcChannels,
-				xStride, yStride, xOffset, yOffset, nDepthwise, xConv, yConv, stream ) ;
+				pMatrix, xMatrix, yMatrix, zSrcChannels, nDepthwise, sp, stream ) ;
 	}
 } ;
 
@@ -131,7 +124,7 @@ public:
 
 	static inline __NN_CUDA_DEV__ float Sample
 		( const float * pSrc, NNBufDim dimSrc,
-			int xSrc, int ySrc, size_t chSrc, int xConv )
+			int xSrc, int ySrc, size_t chSrc, const NNSamplingParam& sp )
 	{
 		if ( chSrc >= dimSrc.z )
 		{
@@ -153,7 +146,7 @@ public:
 
 	static inline __NN_CUDA_DEV__ float Sample
 		( const float * pSrc, NNBufDim dimSrc,
-			int xSrc, int ySrc, size_t chSrc, int xConv )
+			int xSrc, int ySrc, size_t chSrc, const NNSamplingParam& sp )
 	{
 		if ( chSrc >= dimSrc.z )
 		{
@@ -171,14 +164,12 @@ public:
 			const float * pSrc, NNBufDim dimSrc,
 			const float * pMatrix,
 			size_t xMatrix, size_t yMatrix, size_t iMatrixBias, 
-			int xStride, int yStride, int xOffset, int yOffset,
-			int nDepthwise, int xConv, int yConv, cudaStream_t stream )
+			int nDepthwise, const NNSamplingParam& sp, cudaStream_t stream )
 	{
 		nncuda_Matrix_Edge
 			( pDst, dimDst, pSrc, dimSrc,
 				pMatrix, xMatrix, yMatrix, iMatrixBias,
-				xStride, yStride, xOffset, yOffset,
-				nDepthwise, xConv, yConv, stream ) ;
+				nDepthwise, sp, stream ) ;
 	}
 	static inline void cudaCalcMatrixGradient
 		( float * pGradient, NNBufDim dimGradient,
@@ -186,15 +177,13 @@ public:
 			size_t xMatrix, size_t yMatrix, size_t iMatrixBias,
 			const float * pDelta, NNBufDim dimDelta,
 			const float * pSrc, NNBufDim dimSrc,
-			int xStride, int yStride, int xOffset, int yOffset,
-			int nDepthwise, int xConv, int yConv, cudaStream_t stream )
+			int nDepthwise, const NNSamplingParam& sp, cudaStream_t stream )
 	{
 		nncuda_CalcMatrixGradient_Edge
 			( pGradient, dimGradient,
 				xGradientBlockSize, yGradientBlockSize,
 				xMatrix, yMatrix, iMatrixBias,
-				pDelta, dimDelta, pSrc, dimSrc,
-				xStride, yStride, xOffset, yOffset, xConv, yConv, stream ) ;
+				pDelta, dimDelta, pSrc, dimSrc, sp, stream ) ;
 	}
 } ;
 
@@ -211,13 +200,14 @@ public:
 	}
 	static inline __NN_CUDA_DEV__ float Sample
 		( const float * pSrc, NNBufDim dimSrc,
-			int xSrc, int ySrc, size_t chSrc, int xConv )
+			int xSrc, int ySrc, size_t chSrc, const NNSamplingParam& sp )
 	{
 		const size_t	iConv = chSrc / dimSrc.z ;
 		const size_t	zSub = chSrc - iConv * dimSrc.z ;
-		const int		ySub = (int) iConv / xConv ;
-		const int		xSub = (int) iConv - ySub * xConv ;
-		return	S::Sample( pSrc, dimSrc, xSrc + xSub, ySrc + ySub, zSub, xConv ) ;
+		const int		ySub = (int) iConv / sp.m_xConv ;
+		const int		xSub = (int) iConv - ySub * sp.m_xConv ;
+		return	S::Sample( pSrc, dimSrc, xSrc + xSub * sp.m_xPitch,
+										ySrc + ySub * sp.m_yPitch, zSub, sp ) ;
 	}
 	static inline __NN_CUDA_DEV__ size_t ConvChannelIndex
 		( int xSubSrc, int ySubSrc, size_t zSrc, size_t zChannels, int xConv )
@@ -229,13 +219,11 @@ public:
 			const float * pSrcDelta, NNBufDim dimSrcDelta,
 			const float * pMatrix,
 			int xMatrix, int yMatrix, size_t zSrcChannels,
-			int xStride, int yStride, int xOffset, int yOffset,
-			int nDepthwise, int xConv, int yConv, cudaStream_t stream )
+			int nDepthwise, const NNSamplingParam& sp, cudaStream_t stream )
 	{
 		nncuda_Matrix_DeltaBack_Conv
 			( pDstDelta, dimDstDelta, pSrcDelta, dimSrcDelta,
-				pMatrix, xMatrix, yMatrix, zSrcChannels,
-				xStride, yStride, xOffset, yOffset, nDepthwise, xConv, yConv, stream ) ;
+				pMatrix, xMatrix, yMatrix, zSrcChannels, nDepthwise, sp, stream ) ;
 	}
 } ;
 
@@ -249,14 +237,12 @@ public:
 			const float * pSrc, NNBufDim dimSrc,
 			const float * pMatrix,
 			size_t xMatrix, size_t yMatrix, size_t iMatrixBias, 
-			int xStride, int yStride, int xOffset, int yOffset,
-			int nDepthwise, int xConv, int yConv, cudaStream_t stream )
+			int nDepthwise, const NNSamplingParam& sp, cudaStream_t stream )
 	{
 		nncuda_Matrix_Conv_Clamp
 			( pDst, dimDst, pSrc, dimSrc,
 				pMatrix, xMatrix, yMatrix, iMatrixBias,
-				xStride, yStride, xOffset, yOffset,
-				nDepthwise, xConv, yConv, stream ) ;
+				nDepthwise, sp, stream ) ;
 	}
 	static inline void cudaCalcMatrixGradient
 		( float * pGradient, NNBufDim dimGradient,
@@ -264,15 +250,13 @@ public:
 			size_t xMatrix, size_t yMatrix, size_t iMatrixBias,
 			const float * pDelta, NNBufDim dimDelta,
 			const float * pSrc, NNBufDim dimSrc,
-			int xStride, int yStride, int xOffset, int yOffset,
-			int nDepthwise, int xConv, int yConv, cudaStream_t stream )
+			int nDepthwise, const NNSamplingParam& sp, cudaStream_t stream )
 	{
 		nncuda_CalcMatrixGradient_Conv_Clamp
 			( pGradient, dimGradient,
 				xGradientBlockSize, yGradientBlockSize,
 				xMatrix, yMatrix, iMatrixBias,
-				pDelta, dimDelta, pSrc, dimSrc,
-				xStride, yStride, xOffset, yOffset, xConv, yConv, stream ) ;
+				pDelta, dimDelta, pSrc, dimSrc, sp, stream ) ;
 	}
 } ;
 
@@ -285,15 +269,13 @@ public:
 		( float * pDst, NNBufDim dimDst,
 			const float * pSrc, NNBufDim dimSrc,
 			const float * pMatrix,
-			size_t xMatrix, size_t yMatrix, size_t iMatrixBias, 
-			int xStride, int yStride, int xOffset, int yOffset,
-			int nDepthwise, int xConv, int yConv, cudaStream_t stream )
+			size_t xMatrix, size_t yMatrix, size_t iMatrixBias,
+			int nDepthwise, const NNSamplingParam& sp, cudaStream_t stream )
 	{
 		nncuda_Matrix_Conv_Edge
 			( pDst, dimDst, pSrc, dimSrc,
 				pMatrix, xMatrix, yMatrix, iMatrixBias,
-				xStride, yStride, xOffset, yOffset,
-				nDepthwise, xConv, yConv, stream ) ;
+				nDepthwise, sp, stream ) ;
 	}
 	static inline void cudaCalcMatrixGradient
 		( float * pGradient, NNBufDim dimGradient,
@@ -301,266 +283,116 @@ public:
 			size_t xMatrix, size_t yMatrix, size_t iMatrixBias,
 			const float * pDelta, NNBufDim dimDelta,
 			const float * pSrc, NNBufDim dimSrc,
-			int xStride, int yStride, int xOffset, int yOffset,
-			int nDepthwise, int xConv, int yConv, cudaStream_t stream )
+			int nDepthwise, const NNSamplingParam& sp, cudaStream_t stream )
 	{
 		nncuda_CalcMatrixGradient_Conv_Edge
 			( pGradient, dimGradient,
 				xGradientBlockSize, yGradientBlockSize,
 				xMatrix, yMatrix, iMatrixBias,
-				pDelta, dimDelta, pSrc, dimSrc,
-				xStride, yStride, xOffset, yOffset, xConv, yConv, stream ) ;
+				pDelta, dimDelta, pSrc, dimSrc, sp, stream ) ;
 	}
 } ;
 
 
 // アップサンプリング
 //////////////////////////////////////////////////////////////////////////////
-template <int SX, int SY>  class NNBufUpSampler	: public NNBufEdgeSampler
+class NNBufUpSampler	: public NNBufEdgeSampler
 {
 public:
-	constexpr static const size_t	UpSamplingScaleX = SX ;
-	constexpr static const size_t	UpSamplingScaleY = SY ;
+	constexpr static const char	SamplerName[] = "upsampler" ;
 
-	static inline __NN_CUDA_DEV__ NNBufDim CalcOutputDim( const NNBufDim& dimSrc )
+	static inline __NN_CUDA_DEV__ NNBufDim CalcOutputDim( const NNBufDim& dimSrc, const NNSamplingParam& sp )
 	{
-		return	NNBufDim( dimSrc.x * SX, dimSrc.y * SY, dimSrc.z / (SX*SY) ) ;
+		return	NNBufDim( dimSrc.x * (size_t) sp.m_xUpScale,
+							dimSrc.y * (size_t) sp.m_yUpScale,
+							dimSrc.z / (size_t) (sp.m_xUpScale * sp.m_yUpScale) ) ;
 	}
-	static inline size_t CalcOutputChannels( size_t nMatrixLines )
+	static inline size_t CalcOutputChannels( size_t nMatrixLines, const NNSamplingParam& sp )
 	{
-		return	nMatrixLines / (SX*SY) ;
+		return	nMatrixLines / (size_t) (sp.m_xUpScale * sp.m_yUpScale) ;
 	}
 	static inline __NN_CUDA_DEV__ size_t SampleMatrixLine
-		( int xDst, int yDst, size_t zChannel, size_t zChannelCount )
+		( int xDst, int yDst, size_t zChannel, size_t zChannelCount, const NNSamplingParam& sp )
 	{
-		return	((yDst % SY) * SX + (xDst % SX)) * zChannelCount + zChannel ;
+		return	((yDst % sp.m_yUpScale) * sp.m_xUpScale
+					+ (xDst % sp.m_xUpScale)) * zChannelCount + zChannel ;
 	}
 	static inline __NN_CUDA_DEV__ float Sample
 		( const float * pSrc, NNBufDim dimSrc,
-			int xSrc, int ySrc, size_t chSrc, int xConv )
+			int xSrc, int ySrc, size_t chSrc, const NNSamplingParam& sp )
 	{
 		return	NNBufEdgeSampler::Sample
-					( pSrc, dimSrc, xSrc / SX, ySrc / SY, chSrc, xConv ) ;
+					( pSrc, dimSrc,
+						xSrc / sp.m_xUpScale,
+						ySrc / sp.m_yUpScale, chSrc, sp ) ;
 	}
 	static inline __NN_CUDA_DEV__ float BackSample
-		( size_t chOut, const float * pSrc, NNBufDim dimSrc, int xSrc, int ySrc )
+		( size_t chOut, const float * pSrc, NNBufDim dimSrc,
+					int xSrc, int ySrc, const NNSamplingParam& sp )
 	{
 		size_t		iUp = chOut / dimSrc.z ;
 		size_t		chSrc = chOut - iUp * dimSrc.z ;
-		const int	yUpOdd = (int) (iUp / SX) ;
-		const int	xUpOdd = (int) (iUp - yUpOdd * SX) ;
+		const int	yUpOdd = (int) (iUp / sp.m_xUpScale) ;
+		const int	xUpOdd = (int) (iUp - yUpOdd * sp.m_xUpScale) ;
 		return	NNBufEdgeSampler::BackSample
-				( chSrc, pSrc, dimSrc, xSrc * SX + xUpOdd, ySrc * SY + yUpOdd ) ;
+				( chSrc, pSrc, dimSrc,
+					xSrc * sp.m_xUpScale + xUpOdd,
+					ySrc * sp.m_yUpScale + yUpOdd, sp ) ;
 	}
 	static inline void cpuMatrix
 		( float * pDst, int xDst, int yDst, const NNMatrix& matrix,
-			const float * pSrc, size_t nDepthwise, size_t iMatrixBias )
+			const float * pSrc, size_t nDepthwise,
+			size_t iMatrixBias, const NNSamplingParam& sp )
 	{
-		const size_t	nDstChannels = matrix.GetLineCount() / (SX*SY) ;
-		const size_t	iDstOffset = ((yDst % SY) * SX + (xDst % SX)) * nDstChannels ;
+		const size_t	nDstChannels = matrix.GetLineCount() / (sp.m_xUpScale * sp.m_yUpScale) ;
+		const size_t	iDstOffset = ((yDst % sp.m_yUpScale) * sp.m_xUpScale
+										+ (xDst % sp.m_xUpScale)) * nDstChannels ;
 		matrix.ProductVectorLines
 			( pDst, iDstOffset, nDstChannels, pSrc, nDepthwise, iMatrixBias ) ;
 	}
+	static inline void cudaMatrix
+		( float * pDst, NNBufDim dimDst,
+			const float * pSrc, NNBufDim dimSrc,
+			const float * pMatrix,
+			size_t xMatrix, size_t yMatrix, size_t iMatrixBias,
+			int nDepthwise, const NNSamplingParam& sp, cudaStream_t stream )
+	{
+		nncuda_Matrix_UpSampler
+			( pDst, dimDst, pSrc, dimSrc,
+				pMatrix, xMatrix, yMatrix, iMatrixBias,
+				nDepthwise, sp, stream ) ;
+	}
+	static inline void cudaCalcMatrixGradient
+		( float * pGradient, NNBufDim dimGradient,
+			size_t xGradientBlockSize, size_t yGradientBlockSize,
+			size_t xMatrix, size_t yMatrix, size_t iMatrixBias,
+			const float * pDelta, NNBufDim dimDelta,
+			const float * pSrc, NNBufDim dimSrc,
+			int nDepthwise, const NNSamplingParam& sp, cudaStream_t stream )
+	{
+		nncuda_CalcMatrixGradient_UpSampler
+			( pGradient, dimGradient,
+				xGradientBlockSize, yGradientBlockSize,
+				xMatrix, yMatrix, iMatrixBias,
+				pDelta, dimDelta, pSrc, dimSrc, sp, stream ) ;
+	}
+	static inline void cudaMatrixDeltaBack
+		( float * pDstDelta, NNBufDim dimDstDelta,
+			const float * pSrcDelta, NNBufDim dimSrcDelta,
+			const float * pMatrix,
+			int xMatrix, int yMatrix, size_t zSrcChannels,
+			int nDepthwise, const NNSamplingParam& sp, cudaStream_t stream )
+	{
+		nncuda_Matrix_DeltaBack_UpSampler
+			( pDstDelta, dimDstDelta, pSrcDelta, dimSrcDelta,
+				pMatrix, xMatrix, yMatrix, zSrcChannels, nDepthwise, sp, stream ) ;
+	}
 } ;
 
-class	NNBufUpSampler2x2	: public NNBufUpSampler<2,2>
+class	NNBufUpSampler2x2	: public NNBufUpSampler
 {
 public:
 	constexpr static const char	SamplerName[] = "up2x2" ;
-
-	static inline void cudaMatrix
-		( float * pDst, NNBufDim dimDst,
-			const float * pSrc, NNBufDim dimSrc,
-			const float * pMatrix,
-			size_t xMatrix, size_t yMatrix, size_t iMatrixBias, 
-			int xStride, int yStride, int xOffset, int yOffset,
-			int nDepthwise, int xConv, int yConv, cudaStream_t stream )
-	{
-		nncuda_Matrix_Up2x2
-			( pDst, dimDst, pSrc, dimSrc,
-				pMatrix, xMatrix, yMatrix, iMatrixBias,
-				xStride, yStride, xOffset, yOffset,
-				nDepthwise, xConv, yConv, stream ) ;
-	}
-	static inline void cudaCalcMatrixGradient
-		( float * pGradient, NNBufDim dimGradient,
-			size_t xGradientBlockSize, size_t yGradientBlockSize,
-			size_t xMatrix, size_t yMatrix, size_t iMatrixBias,
-			const float * pDelta, NNBufDim dimDelta,
-			const float * pSrc, NNBufDim dimSrc,
-			int xStride, int yStride, int xOffset, int yOffset,
-			int nDepthwise, int xConv, int yConv, cudaStream_t stream )
-	{
-		nncuda_CalcMatrixGradient_Up2x2
-			( pGradient, dimGradient,
-				xGradientBlockSize, yGradientBlockSize,
-				xMatrix, yMatrix, iMatrixBias,
-				pDelta, dimDelta, pSrc, dimSrc,
-				xStride, yStride, xOffset, yOffset, xConv, yConv, stream ) ;
-	}
-	static inline void cudaMatrixDeltaBack
-		( float * pDstDelta, NNBufDim dimDstDelta,
-			const float * pSrcDelta, NNBufDim dimSrcDelta,
-			const float * pMatrix,
-			int xMatrix, int yMatrix, size_t zSrcChannels,
-			int xStride, int yStride, int xOffset, int yOffset,
-			int nDepthwise, int xConv, int yConv, cudaStream_t stream )
-	{
-		nncuda_Matrix_DeltaBack_Up2x2
-			( pDstDelta, dimDstDelta, pSrcDelta, dimSrcDelta,
-				pMatrix, xMatrix, yMatrix, zSrcChannels,
-				xStride, yStride, xOffset, yOffset, nDepthwise, xConv, yConv, stream ) ;
-	}
-} ;
-
-class	NNBufUpSampler4x4	: public NNBufUpSampler<4,4>
-{
-public:
-	constexpr static const char	SamplerName[] = "up4x4" ;
-
-	static inline void cudaMatrix
-		( float * pDst, NNBufDim dimDst,
-			const float * pSrc, NNBufDim dimSrc,
-			const float * pMatrix,
-			size_t xMatrix, size_t yMatrix, size_t iMatrixBias, 
-			int xStride, int yStride, int xOffset, int yOffset,
-			int nDepthwise, int xConv, int yConv, cudaStream_t stream )
-	{
-		nncuda_Matrix_Up4x4
-			( pDst, dimDst, pSrc, dimSrc,
-				pMatrix, xMatrix, yMatrix, iMatrixBias,
-				xStride, yStride, xOffset, yOffset,
-				nDepthwise, xConv, yConv, stream ) ;
-	}
-	static inline void cudaCalcMatrixGradient
-		( float * pGradient, NNBufDim dimGradient,
-			size_t xGradientBlockSize, size_t yGradientBlockSize,
-			size_t xMatrix, size_t yMatrix, size_t iMatrixBias,
-			const float * pDelta, NNBufDim dimDelta,
-			const float * pSrc, NNBufDim dimSrc,
-			int xStride, int yStride, int xOffset, int yOffset,
-			int nDepthwise, int xConv, int yConv, cudaStream_t stream )
-	{
-		nncuda_CalcMatrixGradient_Up4x4
-			( pGradient, dimGradient,
-				xGradientBlockSize, yGradientBlockSize,
-				xMatrix, yMatrix, iMatrixBias,
-				pDelta, dimDelta, pSrc, dimSrc,
-				xStride, yStride, xOffset, yOffset, xConv, yConv, stream ) ;
-	}
-	static inline void cudaMatrixDeltaBack
-		( float * pDstDelta, NNBufDim dimDstDelta,
-			const float * pSrcDelta, NNBufDim dimSrcDelta,
-			const float * pMatrix,
-			int xMatrix, int yMatrix, size_t zSrcChannels,
-			int xStride, int yStride, int xOffset, int yOffset,
-			int nDepthwise, int xConv, int yConv, cudaStream_t stream )
-	{
-		nncuda_Matrix_DeltaBack_Up4x4
-			( pDstDelta, dimDstDelta, pSrcDelta, dimSrcDelta,
-				pMatrix, xMatrix, yMatrix, zSrcChannels,
-				xStride, yStride, xOffset, yOffset, nDepthwise, xConv, yConv, stream ) ;
-	}
-} ;
-
-class	NNBufUpSampler8x8	: public NNBufUpSampler<8,8>
-{
-public:
-	constexpr static const char	SamplerName[] = "up8x8" ;
-
-	static inline void cudaMatrix
-		( float * pDst, NNBufDim dimDst,
-			const float * pSrc, NNBufDim dimSrc,
-			const float * pMatrix,
-			size_t xMatrix, size_t yMatrix, size_t iMatrixBias, 
-			int xStride, int yStride, int xOffset, int yOffset,
-			int nDepthwise, int xConv, int yConv, cudaStream_t stream )
-	{
-		nncuda_Matrix_Up8x8
-			( pDst, dimDst, pSrc, dimSrc,
-				pMatrix, xMatrix, yMatrix, iMatrixBias,
-				xStride, yStride, xOffset, yOffset,
-				nDepthwise, xConv, yConv, stream ) ;
-	}
-	static inline void cudaCalcMatrixGradient
-		( float * pGradient, NNBufDim dimGradient,
-			size_t xGradientBlockSize, size_t yGradientBlockSize,
-			size_t xMatrix, size_t yMatrix, size_t iMatrixBias,
-			const float * pDelta, NNBufDim dimDelta,
-			const float * pSrc, NNBufDim dimSrc,
-			int xStride, int yStride, int xOffset, int yOffset,
-			int nDepthwise, int xConv, int yConv, cudaStream_t stream )
-	{
-		nncuda_CalcMatrixGradient_Up8x8
-			( pGradient, dimGradient,
-				xGradientBlockSize, yGradientBlockSize,
-				xMatrix, yMatrix, iMatrixBias,
-				pDelta, dimDelta, pSrc, dimSrc,
-				xStride, yStride, xOffset, yOffset, xConv, yConv, stream ) ;
-	}
-	static inline void cudaMatrixDeltaBack
-		( float * pDstDelta, NNBufDim dimDstDelta,
-			const float * pSrcDelta, NNBufDim dimSrcDelta,
-			const float * pMatrix,
-			int xMatrix, int yMatrix, size_t zSrcChannels,
-			int xStride, int yStride, int xOffset, int yOffset,
-			int nDepthwise, int xConv, int yConv, cudaStream_t stream )
-	{
-		nncuda_Matrix_DeltaBack_Up8x8
-			( pDstDelta, dimDstDelta, pSrcDelta, dimSrcDelta,
-				pMatrix, xMatrix, yMatrix, zSrcChannels,
-				xStride, yStride, xOffset, yOffset, nDepthwise, xConv, yConv, stream ) ;
-	}
-} ;
-
-class	NNBufUpSampler16x16	: public NNBufUpSampler<16,16>
-{
-public:
-	constexpr static const char	SamplerName[] = "up16x16" ;
-
-	static inline void cudaMatrix
-		( float * pDst, NNBufDim dimDst,
-			const float * pSrc, NNBufDim dimSrc,
-			const float * pMatrix,
-			size_t xMatrix, size_t yMatrix, size_t iMatrixBias, 
-			int xStride, int yStride, int xOffset, int yOffset,
-			int nDepthwise, int xConv, int yConv, cudaStream_t stream )
-	{
-		nncuda_Matrix_Up16x16
-			( pDst, dimDst, pSrc, dimSrc,
-				pMatrix, xMatrix, yMatrix, iMatrixBias,
-				xStride, yStride, xOffset, yOffset,
-				nDepthwise, xConv, yConv, stream ) ;
-	}
-	static inline void cudaCalcMatrixGradient
-		( float * pGradient, NNBufDim dimGradient,
-			size_t xGradientBlockSize, size_t yGradientBlockSize,
-			size_t xMatrix, size_t yMatrix, size_t iMatrixBias,
-			const float * pDelta, NNBufDim dimDelta,
-			const float * pSrc, NNBufDim dimSrc,
-			int xStride, int yStride, int xOffset, int yOffset,
-			int nDepthwise, int xConv, int yConv, cudaStream_t stream )
-	{
-		nncuda_CalcMatrixGradient_Up16x16
-			( pGradient, dimGradient,
-				xGradientBlockSize, yGradientBlockSize,
-				xMatrix, yMatrix, iMatrixBias,
-				pDelta, dimDelta, pSrc, dimSrc,
-				xStride, yStride, xOffset, yOffset, xConv, yConv, stream ) ;
-	}
-	static inline void cudaMatrixDeltaBack
-		( float * pDstDelta, NNBufDim dimDstDelta,
-			const float * pSrcDelta, NNBufDim dimSrcDelta,
-			const float * pMatrix,
-			int xMatrix, int yMatrix, size_t zSrcChannels,
-			int xStride, int yStride, int xOffset, int yOffset,
-			int nDepthwise, int xConv, int yConv, cudaStream_t stream )
-	{
-		nncuda_Matrix_DeltaBack_Up16x16
-			( pDstDelta, dimDstDelta, pSrcDelta, dimSrcDelta,
-				pMatrix, xMatrix, yMatrix, zSrcChannels,
-				xStride, yStride, xOffset, yOffset, nDepthwise, xConv, yConv, stream ) ;
-	}
 } ;
 
 
@@ -580,7 +412,7 @@ public:
 	}
 	static inline __NN_CUDA_DEV__ float Sample
 		( const float * pSrc, NNBufDim dimSrc,
-			int xSrc, int ySrc, size_t chSrc, int xConv )
+			int xSrc, int ySrc, size_t chSrc, const NNSamplingParam& sp )
 	{
 		if ( (xSrc < 0) || (xSrc >= (int) dimSrc.x)
 			|| (ySrc < 0) || (ySrc >= (int) dimSrc.y) )
@@ -594,15 +426,13 @@ public:
 		( float * pDst, NNBufDim dimDst,
 			const float * pSrc, NNBufDim dimSrc,
 			const float * pMatrix,
-			size_t xMatrix, size_t yMatrix, size_t iMatrixBias, 
-			int xStride, int yStride, int xOffset, int yOffset,
-			int nDepthwise, int xConv, int yConv, cudaStream_t stream )
+			size_t xMatrix, size_t yMatrix, size_t iMatrixBias,
+			int nDepthwise, const NNSamplingParam& sp, cudaStream_t stream )
 	{
 		nncuda_Matrix_OneHot
 			( pDst, dimDst, pSrc, dimSrc,
 				pMatrix, xMatrix, yMatrix, iMatrixBias,
-				xStride, yStride, xOffset, yOffset,
-				nDepthwise, xConv, yConv, stream ) ;
+				nDepthwise, sp, stream ) ;
 	}
 	static inline void cudaCalcMatrixGradient
 		( float * pGradient, NNBufDim dimGradient,
@@ -610,17 +440,14 @@ public:
 			size_t xMatrix, size_t yMatrix, size_t iMatrixBias,
 			const float * pDelta, NNBufDim dimDelta,
 			const float * pSrc, NNBufDim dimSrc,
-			int xStride, int yStride, int xOffset, int yOffset,
-			int nDepthwise, int xConv, int yConv, cudaStream_t stream )
+			int nDepthwise, const NNSamplingParam& sp, cudaStream_t stream )
 	{
 		nncuda_CalcMatrixGradient_OneHot
 			( pGradient, dimGradient,
 				xGradientBlockSize, yGradientBlockSize,
 				xMatrix, yMatrix, iMatrixBias,
-				pDelta, dimDelta, pSrc, dimSrc,
-				xStride, yStride, xOffset, yOffset, xConv, yConv, stream ) ;
+				pDelta, dimDelta, pSrc, dimSrc, sp, stream ) ;
 	}
-	// ※現状 CUDA 実装は特殊化していないので高速化しません（CPU のみ高速化）
 } ;
 
 

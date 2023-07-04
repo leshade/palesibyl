@@ -81,8 +81,7 @@ void Palesibyl::nncuda_Matrix_OneHot
 		const float * pSrc, NNBufDim dimSrc,
 		const float * pMatrix,
 		size_t xMatrix, size_t yMatrix, size_t iMatrixBias,
-		int xStride, int yStride, int xOffset, int yOffset,
-		int nDepthwise, int xConv, int yConv, cudaStream_t stream )
+		int nDepthwise, const NNSamplingParam& sp, cudaStream_t stream )
 {
 	assert( dimSrc.z == 1 ) ;
 
@@ -97,7 +96,7 @@ void Palesibyl::nncuda_Matrix_OneHot
 		<<<grid, threads, 0, stream>>>
 			( pDst, dimDst, pSrc, dimSrc,
 				pMatrix, (int) xMatrix, (int) yMatrix, iMatrixBias,
-				xStride, yStride, xOffset, yOffset, xThreads, yThreads ) ;
+				sp.m_xStride, sp.m_yStride, sp.m_xOffset, sp.m_yOffset, xThreads, yThreads ) ;
 }
 
 
@@ -110,13 +109,12 @@ void Palesibyl::nncuda_Matrix_DeltaBack_Injection_Sp
 		const float * pSrcDelta, NNBufDim dimSrcDelta,
 		const float * pMatrix,
 		int xMatrix, int yMatrix, size_t zSrcChannels,
-		int xStride, int yStride, int xOffset, int yOffset,
-		int nDepthwise, int xConv, int yConv, cudaStream_t stream )
+		int nDepthwise, const NNSamplingParam& sp, cudaStream_t stream )
 {
 	nncuda_Matrix_DeltaBack_Sp<NNBufSampler>
 		( pDstDelta, dimDstDelta, pSrcDelta, dimSrcDelta,
 			pMatrix, xMatrix, yMatrix, zSrcChannels,
-			xStride, yStride, xOffset, yOffset, nDepthwise, xConv, yConv, stream ) ;
+			nDepthwise, sp, stream ) ;
 }
 
 void Palesibyl::nncuda_Matrix_DeltaBack_Conv_Sp
@@ -124,13 +122,12 @@ void Palesibyl::nncuda_Matrix_DeltaBack_Conv_Sp
 		const float * pSrcDelta, NNBufDim dimSrcDelta,
 		const float * pMatrix,
 		int xMatrix, int yMatrix, size_t zSrcChannels,
-		int xStride, int yStride, int xOffset, int yOffset,
-		int nDepthwise, int xConv, int yConv, cudaStream_t stream )
+		int nDepthwise, const NNSamplingParam& sp, cudaStream_t stream )
 {
 	nncuda_Matrix_DeltaBack_Sp<NNBufConvEdgeSampler>
 		( pDstDelta, dimDstDelta, pSrcDelta, dimSrcDelta,
 			pMatrix, xMatrix, yMatrix, zSrcChannels,
-			xStride, yStride, xOffset, yOffset, nDepthwise, xConv, yConv, stream ) ;
+			nDepthwise, sp, stream ) ;
 }
 
 
@@ -145,15 +142,13 @@ void Palesibyl::nncuda_CalcMatrixGradient_Edge_Sp
 		size_t xMatrix, size_t yMatrix, size_t iMatrixBias,
 		const float * pDelta, NNBufDim dimDelta,
 		const float * pSrc, NNBufDim dimSrc,
-		int xStride, int yStride, int xOffset, int yOffset,
-		int xConv, int yConv, cudaStream_t stream )
+		const NNSamplingParam& sp, cudaStream_t stream )
 {
 	cuda_CalcMatrixGradient_Sp<NNBufEdgeSampler>
 		( pGradient, dimGradient,
 			xGradientBlockSize, yGradientBlockSize,
 			xMatrix, yMatrix, iMatrixBias,
-			pDelta, dimDelta, pSrc, dimSrc,
-			xStride, yStride, xOffset, yOffset, xConv, yConv, stream ) ;
+			pDelta, dimDelta, pSrc, dimSrc, sp, stream ) ;
 }
 
 void Palesibyl::nncuda_CalcMatrixGradient_Conv_Edge_Sp
@@ -162,15 +157,13 @@ void Palesibyl::nncuda_CalcMatrixGradient_Conv_Edge_Sp
 		size_t xMatrix, size_t yMatrix, size_t iMatrixBias,
 		const float * pDelta, NNBufDim dimDelta,
 		const float * pSrc, NNBufDim dimSrc,
-		int xStride, int yStride, int xOffset, int yOffset,
-		int xConv, int yConv, cudaStream_t stream )
+		const NNSamplingParam& sp, cudaStream_t stream )
 {
 	cuda_CalcMatrixGradient_Sp<NNBufConvEdgeSampler>
 		( pGradient, dimGradient,
 			xGradientBlockSize, yGradientBlockSize,
 			xMatrix, yMatrix, iMatrixBias,
-			pDelta, dimDelta, pSrc, dimSrc,
-			xStride, yStride, xOffset, yOffset, xConv, yConv, stream ) ;
+			pDelta, dimDelta, pSrc, dimSrc, sp, stream ) ;
 }
 
 

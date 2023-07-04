@@ -14,35 +14,13 @@ std::map< std::string, std::function< std::shared_ptr<NNSamplingFilter>() > >
 // 構築関数
 //////////////////////////////////////////////////////////////////////////////
 NNSamplingFilter::NNSamplingFilter
-		( int xStride, int yStride,
-			int xOffset, int yOffset,
-			int xConv, int yConv, int xPad, int yPad )
-	: m_xStride( xStride ), m_yStride( yStride ),
-		m_xOffset( xOffset ), m_yOffset( yOffset ),
-		m_xConv( xConv ), m_yConv( yConv ),
-		m_xPadding( xPad ), m_yPadding( yPad )
+		( int xStride, int yStride, int xOffset, int yOffset,
+			int xConv, int yConv, int xPad, int yPad,
+			int xPitch, int yPitch,  int xUpScale, int yUpScale )
+	: NNSamplingParam
+		( xStride, yStride, xOffset, yOffset,
+			xConv, yConv, xPad, yPad, xPitch, yPitch, xUpScale, yUpScale )
 {
-}
-
-// ストライド情報
-//////////////////////////////////////////////////////////////////////////////
-void NNSamplingFilter::SetStride
-	( int xStride, int yStride, int xOffset, int yOffset )
-{
-	m_xStride = xStride ;
-	m_yStride = yStride ;
-	m_xOffset = xOffset ;
-	m_yOffset = yOffset ;
-}
-
-// 畳み込み情報
-//////////////////////////////////////////////////////////////////////////////
-void NNSamplingFilter::SetConvolution( int xConv, int yConv, bool padding )
-{
-	m_xConv = xConv ;
-	m_yConv = yConv ;
-	m_xPadding = padding ? (xConv - 1) : 0 ;
-	m_yPadding = padding ? (yConv - 1) : 0 ;
 }
 
 // 出力サイズ計算
@@ -65,12 +43,12 @@ size_t NNSamplingFilter::CalcOutputChannels( size_t nMatrixLines ) const
 
 size_t NNSamplingFilter::UpSamplingScaleX( void ) const
 {
-	return	1 ;
+	return	m_xUpScale ;
 }
 
 size_t NNSamplingFilter::UpSamplingScaleY( void ) const
 {
-	return	1 ;
+	return	m_yUpScale ;
 }
 
 // CPU での行列勾配計算（加算）
@@ -136,55 +114,16 @@ void NNSamplingFilter::cpuSparseCalcMatrixGradient
 //////////////////////////////////////////////////////////////////////////////
 void NNSamplingFilter::Serialize( NNSerializer& ser )
 {
-	int32_t	xStride = (int32_t) m_xStride,
-			yStride = (int32_t) m_yStride,
-			xOffset = (int32_t) m_xOffset,
-			yOffset = (int32_t) m_yOffset,
-			xConv = (int32_t) m_xConv,
-			yConv = (int32_t) m_yConv,
-			xPadding = (int32_t) m_xPadding,
-			yPadding = (int32_t) m_yPadding ;
-
-	ser.Write( &xStride, sizeof(xStride) ) ;
-	ser.Write( &yStride, sizeof(yStride) ) ;
-	ser.Write( &xOffset, sizeof(xOffset) ) ;
-	ser.Write( &yOffset, sizeof(yOffset) ) ;
-	ser.Write( &xConv, sizeof(xConv) ) ;
-	ser.Write( &yConv, sizeof(yConv) ) ;
-	ser.Write( &xPadding, sizeof(xPadding) ) ;
-	ser.Write( &yPadding, sizeof(yPadding) ) ;
+	const NNSamplingParam&	sp = *this ;
+	ser.Write( &sp, sizeof(NNSamplingParam) ) ;
 }
 
 // デシリアライズ
 //////////////////////////////////////////////////////////////////////////////
 bool NNSamplingFilter::Deserialize( NNDeserializer & dsr )
 {
-	int32_t	xStride = (int32_t) m_xStride,
-			yStride = (int32_t) m_yStride,
-			xOffset = (int32_t) m_xOffset,
-			yOffset = (int32_t) m_yOffset,
-			xConv = (int32_t) m_xConv,
-			yConv = (int32_t) m_yConv,
-			xPadding = (int32_t) m_xPadding,
-			yPadding = (int32_t) m_yPadding ;
-
-	dsr.Read( &xStride, sizeof(xStride) ) ;
-	dsr.Read( &yStride, sizeof(yStride) ) ;
-	dsr.Read( &xOffset, sizeof(xOffset) ) ;
-	dsr.Read( &yOffset, sizeof(yOffset) ) ;
-	dsr.Read( &xConv, sizeof(xConv) ) ;
-	dsr.Read( &yConv, sizeof(yConv) ) ;
-	dsr.Read( &xPadding, sizeof(xPadding) ) ;
-	dsr.Read( &yPadding, sizeof(yPadding) ) ;
-
-	m_xStride = xStride ;
-	m_yStride = yStride ;
-	m_xOffset = xOffset ;
-	m_yOffset = yOffset ;
-	m_xConv = xConv ;
-	m_yConv = yConv ;
-	m_xPadding = xPadding ;
-	m_yPadding = yPadding ;
+	NNSamplingParam&	sp = *this ;
+	dsr.Read( &sp, sizeof(NNSamplingParam) ) ;
 	return	true ;
 }
 
@@ -196,10 +135,8 @@ void NNSamplingFilter::InitMake( void )
 	Register<NNSamplerInjection>( NNBufSampler::SamplerName ) ;
 	Register<NNSamplerClamp>( NNBufClampSampler::SamplerName ) ;
 	Register<NNSamplerEdge>( NNBufEdgeSampler::SamplerName ) ;
+	Register<NNSamplerUpSampler>( NNBufUpSampler::SamplerName ) ;
 	Register<NNSamplerUp2x2>( NNBufUpSampler2x2::SamplerName ) ;
-	Register<NNSamplerUp4x4>( NNBufUpSampler4x4::SamplerName ) ;
-	Register<NNSamplerUp8x8>( NNBufUpSampler8x8::SamplerName ) ;
-	Register<NNSamplerUp16x16>( NNBufUpSampler16x16::SamplerName ) ;
 	Register<NNConvClampFilter>( NNBufConvClampSampler::SamplerName ) ;
 	Register<NNConvEdgeFilter>( NNBufConvEdgeSampler::SamplerName ) ;
 	Register<NNSamplerOneHot>( NNBufOneHotSampler::SamplerName ) ;

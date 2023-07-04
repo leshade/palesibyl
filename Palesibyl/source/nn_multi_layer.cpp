@@ -252,6 +252,33 @@ NNPerceptronPtr NNMultiLayerPerceptron::AppendDepthwiseLayer
 
 // アップサンプリング・レイヤー追加
 //////////////////////////////////////////////////////////////////////////////
+NNPerceptronPtr NNMultiLayerPerceptron::AppendUpsamplingLayer
+	( size_t nDstChannels, size_t nSrcChannels,
+		int xUpsampling, int yUpsampling, size_t nBias, const char * pszActivation )
+{
+	return	AppendUpsamplingLayer
+				( nDstChannels, nSrcChannels,
+					xUpsampling, yUpsampling, nBias, 
+					NNActivationFunction::Make( pszActivation ) ) ;
+}
+
+NNPerceptronPtr NNMultiLayerPerceptron::AppendUpsamplingLayer
+	( size_t nDstChannels, size_t nSrcChannels,
+		int xUpsampling, int yUpsampling, size_t nBias,
+		std::shared_ptr<NNActivationFunction> activation )
+{
+	if ( activation == nullptr )
+	{
+		activation = std::make_shared<NNActivationLinear>() ;
+	}
+	NNPerceptronPtr	pLayer =
+		std::make_shared<NNPerceptron>
+			( nDstChannels * (xUpsampling*yUpsampling), nSrcChannels, 1, nBias,
+				std::make_shared<NNSamplerUpSampler>(xUpsampling,yUpsampling), activation ) ;
+	AppendLayer( pLayer ) ;
+	return	pLayer ;
+}
+
 NNPerceptronPtr NNMultiLayerPerceptron::AppendUp2x2Layer
 	( size_t nDstChannels, size_t nSrcChannels, size_t nBias, const char * pszActivation )
 {
@@ -276,61 +303,11 @@ NNPerceptronPtr NNMultiLayerPerceptron::AppendUp2x2Layer
 	return	pLayer ;
 }
 
-NNPerceptronPtr NNMultiLayerPerceptron::AppendUp4x4Layer
-	( size_t nDstChannels, size_t nSrcChannels, size_t nBias, const char * pszActivation )
-{
-	std::shared_ptr<NNActivationFunction>
-			activation = NNActivationFunction::Make( pszActivation ) ;
-	if ( activation == nullptr )
-	{
-		activation = std::make_shared<NNActivationLinear>() ;
-	}
-	NNPerceptronPtr	pLayer =
-		std::make_shared<NNPerceptron>
-			( nDstChannels * (4*4), nSrcChannels, 1, nBias,
-				std::make_shared<NNSamplerUp4x4>(), activation ) ;
-	AppendLayer( pLayer ) ;
-	return	pLayer ;
-}
-
-NNPerceptronPtr NNMultiLayerPerceptron::AppendUp8x8Layer
-	( size_t nDstChannels, size_t nSrcChannels, size_t nBias, const char * pszActivation )
-{
-	std::shared_ptr<NNActivationFunction>
-			activation = NNActivationFunction::Make( pszActivation ) ;
-	if ( activation == nullptr )
-	{
-		activation = std::make_shared<NNActivationLinear>() ;
-	}
-	NNPerceptronPtr	pLayer =
-		std::make_shared<NNPerceptron>
-			( nDstChannels * (8*8), nSrcChannels, 1, nBias,
-				std::make_shared<NNSamplerUp8x8>(), activation ) ;
-	AppendLayer( pLayer ) ;
-	return	pLayer ;
-}
-
-NNPerceptronPtr NNMultiLayerPerceptron::AppendUp16x16Layer
-	( size_t nDstChannels, size_t nSrcChannels, size_t nBias, const char * pszActivation )
-{
-	std::shared_ptr<NNActivationFunction>
-			activation = NNActivationFunction::Make( pszActivation ) ;
-	if ( activation == nullptr )
-	{
-		activation = std::make_shared<NNActivationLinear>() ;
-	}
-	NNPerceptronPtr	pLayer =
-		std::make_shared<NNPerceptron>
-			( nDstChannels * (16*16), nSrcChannels, 1, nBias,
-				std::make_shared<NNSamplerUp16x16>(), activation ) ;
-	AppendLayer( pLayer ) ;
-	return	pLayer ;
-}
-
 // アップサンプリング（パススルー）レイヤー追加
 //////////////////////////////////////////////////////////////////////////////
-NNPerceptronPtr NNMultiLayerPerceptron::AppendUp2x2FixLayer
-	( size_t nDstChannels, size_t nSrcChannels, const char * pszActivation )
+NNPerceptronPtr NNMultiLayerPerceptron::AppendUpsamplingFixLayer
+	( size_t nDstChannels, size_t nSrcChannels,
+		int xUpsampling, int yUpsampling, const char * pszActivation )
 {
 	std::shared_ptr<NNActivationFunction>
 			activation = NNActivationFunction::Make( pszActivation ) ;
@@ -340,63 +317,11 @@ NNPerceptronPtr NNMultiLayerPerceptron::AppendUp2x2FixLayer
 	}
 	NNPerceptronPtr	pLayer =
 		std::make_shared<NNIdentityPerceptron>
-			( nDstChannels * (2*2), nSrcChannels, nSrcChannels,
-				std::make_shared<NNSamplerUp2x2>(), activation ) ;
+			( nDstChannels * (xUpsampling*yUpsampling), nSrcChannels, nSrcChannels,
+				std::make_shared<NNSamplerUpSampler>(xUpsampling,yUpsampling), activation ) ;
 	AppendLayer( pLayer ) ;
 	return	pLayer ;
 }
-
-NNPerceptronPtr NNMultiLayerPerceptron::AppendUp4x4FixLayer
-	( size_t nDstChannels, size_t nSrcChannels, const char * pszActivation )
-{
-	std::shared_ptr<NNActivationFunction>
-			activation = NNActivationFunction::Make( pszActivation ) ;
-	if ( activation == nullptr )
-	{
-		activation = std::make_shared<NNActivationLinear>() ;
-	}
-	NNPerceptronPtr	pLayer =
-		std::make_shared<NNIdentityPerceptron>
-			( nDstChannels * (4*4), nSrcChannels, nSrcChannels,
-				std::make_shared<NNSamplerUp4x4>(), activation ) ;
-	AppendLayer( pLayer ) ;
-	return	pLayer ;
-}
-
-NNPerceptronPtr NNMultiLayerPerceptron::AppendUp8x8FixLayer
-	( size_t nDstChannels, size_t nSrcChannels, const char * pszActivation )
-{
-	std::shared_ptr<NNActivationFunction>
-			activation = NNActivationFunction::Make( pszActivation ) ;
-	if ( activation == nullptr )
-	{
-		activation = std::make_shared<NNActivationLinear>() ;
-	}
-	NNPerceptronPtr	pLayer =
-		std::make_shared<NNIdentityPerceptron>
-			( nDstChannels * (8*8), nSrcChannels, nSrcChannels,
-				std::make_shared<NNSamplerUp8x8>(), activation ) ;
-	AppendLayer( pLayer ) ;
-	return	pLayer ;
-}
-
-NNPerceptronPtr NNMultiLayerPerceptron::AppendUp16x16FixLayer
-	( size_t nDstChannels, size_t nSrcChannels, const char * pszActivation )
-{
-	std::shared_ptr<NNActivationFunction>
-			activation = NNActivationFunction::Make( pszActivation ) ;
-	if ( activation == nullptr )
-	{
-		activation = std::make_shared<NNActivationLinear>() ;
-	}
-	NNPerceptronPtr	pLayer =
-		std::make_shared<NNIdentityPerceptron>
-			( nDstChannels * (16*16), nSrcChannels, nSrcChannels,
-				std::make_shared<NNSamplerUp16x16>(), activation ) ;
-	AppendLayer( pLayer ) ;
-	return	pLayer ;
-}
-
 
 // One-Hot 相当１チャネル（インデックス値）入力レイヤー追加
 //////////////////////////////////////////////////////////////////////////////

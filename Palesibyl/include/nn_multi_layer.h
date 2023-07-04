@@ -221,6 +221,14 @@ public:
 			std::shared_ptr<NNSamplingFilter> sampler = nullptr ) ;
 
 	// アップサンプリング・レイヤー追加
+	NNPerceptronPtr AppendUpsamplingLayer
+		( size_t nDstChannels, size_t nSrcChannels,
+			int xUpsampling, int yUpsampling, size_t nBias = 1,
+			const char * pszActivation = activLinear ) ;
+	NNPerceptronPtr AppendUpsamplingLayer
+		( size_t nDstChannels, size_t nSrcChannels,
+			int xUpsampling, int yUpsampling, size_t nBias,
+			std::shared_ptr<NNActivationFunction> activation ) ;
 	NNPerceptronPtr AppendUp2x2Layer
 		( size_t nDstChannels, size_t nSrcChannels, size_t nBias = 1,
 			const char * pszActivation = activLinear ) ;
@@ -228,28 +236,10 @@ public:
 		( size_t nDstChannels, size_t nSrcChannels, size_t nBias,
 			std::shared_ptr<NNActivationFunction> activation ) ;
 
-	NNPerceptronPtr AppendUp4x4Layer
-		( size_t nDstChannels, size_t nSrcChannels, size_t nBias = 1,
-			const char * pszActivation = activLinear ) ;
-	NNPerceptronPtr AppendUp8x8Layer
-		( size_t nDstChannels, size_t nSrcChannels, size_t nBias = 1,
-			const char * pszActivation = activLinear ) ;
-	NNPerceptronPtr AppendUp16x16Layer
-		( size_t nDstChannels, size_t nSrcChannels, size_t nBias = 1,
-			const char * pszActivation = activLinear ) ;
-
 	// アップサンプリング（パススルー）レイヤー追加
-	NNPerceptronPtr AppendUp2x2FixLayer
+	NNPerceptronPtr AppendUpsamplingFixLayer
 		( size_t nDstChannels, size_t nSrcChannels,
-			const char * pszActivation = activLinear ) ;
-	NNPerceptronPtr AppendUp4x4FixLayer
-		( size_t nDstChannels, size_t nSrcChannels,
-			const char * pszActivation = activLinear ) ;
-	NNPerceptronPtr AppendUp8x8FixLayer
-		( size_t nDstChannels, size_t nSrcChannels,
-			const char * pszActivation = activLinear ) ;
-	NNPerceptronPtr AppendUp16x16FixLayer
-		( size_t nDstChannels, size_t nSrcChannels,
+			int xUpsampling, int yUpsampling,
 			const char * pszActivation = activLinear ) ;
 
 	// One-Hot 相当１チャネル（インデックス値）入力レイヤー追加

@@ -43,8 +43,7 @@ template <class S, int MX> __global__ void nnkernel_Matrix
 	( float * pDst, NNBufDim dimDst,
 		const float * pSrc, NNBufDim dimSrc,
 		const float * pMatrix, int xMatrix, int yMatrix, size_t iMatrixBias,
-		int xStride, int yStride, int xOffset, int yOffset,
-		int nDepthwise, int xConv, int yConv, int xThreads, int yThreads )
+		int nDepthwise, NNSamplingParam sp, int xThreads, int yThreads )
 {
 	const int	tx = threadIdx.x ;
 	const int	ty = threadIdx.y ;
@@ -58,12 +57,12 @@ template <class S, int MX> __global__ void nnkernel_Matrix
 	__shared__ float	vDst[maxBatchSamples*maxBatchSamples] ;
 	
 	// 入力ベクトルを読み込む（一括）
-	const int		xUpScale = S::UpSamplingScaleX ;
+	const int		xUpScale = sp.m_xUpScale ;
 	const int		xMatrixBufWidth = min(xMatrix,MX) ;
 	const int		nMatrixBufSize = xMatrixBufWidth * yThreads ;
 	const int		tyLine = ty * xMatrixBufWidth ;
-	const int		xSrc = bx * xStride + xOffset ;
-	const int		ySrc = by * yStride + yOffset ;
+	const int		xSrc = bx * sp.m_xStride + sp.m_xOffset ;
+	const int		ySrc = by * sp.m_yStride + sp.m_yOffset ;
 	const size_t	zSrcCount = iMatrixBias ;
 	if ( xMatrix <= MX )
 	{
@@ -73,7 +72,7 @@ template <class S, int MX> __global__ void nnkernel_Matrix
 			{
 				if ( i < zSrcCount )
 				{
-					vSrc[tyLine + i] = S::Sample( pSrc, dimSrc, xSrc, ySrc, i, (size_t) xConv ) ;
+					vSrc[tyLine + i] = S::Sample( pSrc, dimSrc, xSrc, ySrc, i, sp ) ;
 				}
 				else
 				{
@@ -112,7 +111,7 @@ template <class S, int MX> __global__ void nnkernel_Matrix
 						if ( colBase + i < zSrcCount )
 						{
 							vSrc[tyLine + i] =
-								S::Sample( pSrc, dimSrc, xSrc, ySrc, colBase + i, (size_t) xConv ) ;
+								S::Sample( pSrc, dimSrc, xSrc, ySrc, colBase + i, sp ) ;
 						}
 						else
 						{
@@ -131,7 +130,7 @@ template <class S, int MX> __global__ void nnkernel_Matrix
 			for ( int i = 0, iBuf = 0; i < xUpScale; i ++, iBuf += nMatrixBufSize )
 			{
 				// bx が ty に依存し、S::SampleMatrixLine が変化するので bx0 を使う
-				const int	line = S::SampleMatrixLine(bx0 + i, by, lineBase + ty, dimDst.z) ;
+				const int	line = S::SampleMatrixLine(bx0 + i, by, lineBase + ty, dimDst.z, sp) ;
 				if ( line < yMatrix )
 				{
 					const int	iLine = line * xMatrix ;
@@ -148,7 +147,7 @@ template <class S, int MX> __global__ void nnkernel_Matrix
 			for ( int i = tx; (i < yThreads) && (lineBase + i < dimDst.z); i += xThreads )
 			{
 				const int	zOffset = (S::SampleMatrixLine
-											(bx, by, lineBase + i, dimDst.z)
+											(bx, by, lineBase + i, dimDst.z, sp)
 										+ colBaseMod) % nDepthwise ;
 				const int	iLine = iMatrixBlock + i * xMatrixBufWidth ;
 				float	x = 0.0 ;
@@ -182,13 +181,12 @@ template <class S> void nncuda_Matrix
 		const float * pSrc, NNBufDim dimSrc,
 		const float * pMatrix,
 		size_t xMatrix, size_t yMatrix, size_t iMatrixBias,
-		int xStride, int yStride, int xOffset, int yOffset,
-		int nDepthwise, int xConv, int yConv, cudaStream_t stream )
+		int nDepthwise, const NNSamplingParam& sp, cudaStream_t stream )
 {
 	unsigned int	nBatchSamples =
 		CalcBatchSamples
 			( (cudaSharedMemorySize/3/sizeof(float))
-				/ (min(xMatrix,maxMatrixStrideX) * S::UpSamplingScaleX), dimDst.x ) ;
+				/ (min(xMatrix,maxMatrixStrideX) * sp.m_xUpScale), dimDst.x ) ;
 
 	unsigned int	xThreads = (unsigned int) cudaMaxThreadCount / nBatchSamples ;
 	unsigned int	yThreads = nBatchSamples ;
@@ -201,15 +199,14 @@ template <class S> void nncuda_Matrix
 	dim3	grid( ((unsigned int) dimDst.x + yThreads - 1) / yThreads,
 					(unsigned int) dimDst.y ) ;
 
-	assert( min(xMatrix,maxMatrixStrideX) * yThreads * S::UpSamplingScaleX <= cudaSharedMemorySize/3/sizeof(float) ) ;
-	assert( yMatrix == dimDst.z * S::UpSamplingScaleX * S::UpSamplingScaleY ) ;
+	assert( min(xMatrix,maxMatrixStrideX) * yThreads * sp.m_xUpScale <= cudaSharedMemorySize/3/sizeof(float) ) ;
+	assert( yMatrix == dimDst.z * sp.m_xUpScale * sp.m_yUpScale ) ;
 
 	nnkernel_Matrix<S,maxMatrixStrideX>
 		<<<grid, threads, 0, stream>>>
 			( pDst, dimDst, pSrc, dimSrc,
 				pMatrix, (int) xMatrix, (int) yMatrix, iMatrixBias,
-				xStride, yStride, xOffset, yOffset,
-				nDepthwise, xConv, yConv, xThreads, yThreads ) ;
+				nDepthwise, sp, xThreads, yThreads ) ;
 }
 
 
@@ -224,8 +221,7 @@ template <class S, int MX, int MY> __global__ void nnkernel_Matrix_DeltaBack
 		const float * pSrcDelta, NNBufDim dimSrcDelta,
 		const float * pMatrix,
 		int xMatrix, int yMatrix, size_t zSrcChannels, size_t zSrcBlock,
-		int xStride, int yStride, int xOffset, int yOffset,
-		int nDepthwise, int xConv, int yConv, int xThreads, int yThreads, int zThread )
+		int nDepthwise, NNSamplingParam sp, int xThreads, int yThreads, int zThread )
 {
 	const int	tx = threadIdx.x ;
 	const int	ty = threadIdx.y ;
@@ -254,22 +250,22 @@ template <class S, int MX, int MY> __global__ void nnkernel_Matrix_DeltaBack
 	}
 	__syncthreads() ;
 
-	for ( int yc = 0; yc < yConv; yc ++ )
+	for ( int yc = 0; yc < sp.m_yConv; yc ++ )
 	{
-		const int	ySrc = (by - yc - yOffset) / yStride ;
+		const int	ySrc = (by - yc * sp.m_yPitch - sp.m_yOffset) / sp.m_yStride ;
 		if ( (ySrc < 0)
-			|| ((size_t) ySrc * S::UpSamplingScaleY >= dimSrcDelta.y)
-			|| (ySrc * yStride + yOffset != by - yc) )
+			|| ((size_t) ySrc * sp.m_yUpScale >= dimSrcDelta.y)
+			|| (ySrc * sp.m_yStride + sp.m_yOffset != by - yc * sp.m_yPitch) )
 		{
 			continue ;
 		}
-		for ( int xc = 0; xc < xConv; xc ++ )
+		for ( int xc = 0; xc < sp.m_xConv; xc ++ )
 		{
-			const int	xSrc = (bx - xc - xOffset) / xStride ;
+			const int	xSrc = (bx - xc * sp.m_xPitch - sp.m_xOffset) / sp.m_xStride ;
 			bool		flagOutOfDimension = false ;
 			if ( (xSrc < 0)
-				|| ((size_t) xSrc * S::UpSamplingScaleX >= dimSrcDelta.x)
-				|| (xSrc * xStride + xOffset != bx - xc) )
+				|| ((size_t) xSrc * sp.m_xUpScale >= dimSrcDelta.x)
+				|| (xSrc * sp.m_xStride + sp.m_xOffset != bx - xc * sp.m_xPitch) )
 			{
 				// ※ここで continue すると __syncthreads で全スレッドが揃わない
 				flagOutOfDimension = true ;
@@ -283,7 +279,7 @@ template <class S, int MX, int MY> __global__ void nnkernel_Matrix_DeltaBack
 				for ( int i = txyi; (i < MY) && (ymBase + i < yMatrix); i += txyn )
 				{
 					vSrcDelta[tzSrcDelta + i] =
-						S::BackSample( ymBase + i, pSrcDelta, dimSrcDelta, xSrc, ySrc ) ;
+						S::BackSample( ymBase + i, pSrcDelta, dimSrcDelta, xSrc, ySrc, sp ) ;
 				}
 				__syncthreads() ;
 
@@ -294,7 +290,7 @@ template <class S, int MX, int MY> __global__ void nnkernel_Matrix_DeltaBack
 					if ( !flagOutOfDimension )
 					for ( size_t z = tx; (z < zSrcBlock) && (zb + z < zSrcChannels); z += xThreads )
 					{
-						size_t	col = S::ConvChannelIndex( xc, yc, zb + z, zSrcChannels, xConv ) ;
+						size_t	col = S::ConvChannelIndex( xc, yc, zb + z, zSrcChannels, sp.m_xConv ) ;
 						size_t	cod = (col + ymBaseMod) % nDepthwise ;
 						for ( int line = ymBase + cod + ty * nDepthwise;
 									((line - ymBase) < MY) && (line < yMatrix);
@@ -312,7 +308,7 @@ template <class S, int MX, int MY> __global__ void nnkernel_Matrix_DeltaBack
 							(z < zSrcBlock) && ((xmBase + zb) + z < zSrcChannels); z += txyn )
 					{
 						size_t	col = S::ConvChannelIndex
-											( xc, yc, (xmBase + zb) + z, zSrcChannels, xConv ) ;
+											( xc, yc, (xmBase + zb) + z, zSrcChannels, sp.m_xConv ) ;
 						float	d = 0.0f ;
 						for ( int i = ((col + ymBaseMod) % nDepthwise);
 									(i < MY) && (ymBase + i < yMatrix); i += nDepthwise )
@@ -346,8 +342,7 @@ template <class S> void nncuda_Matrix_DeltaBack
 		const float * pSrcDelta, NNBufDim dimSrcDelta,
 		const float * pMatrix,
 		int xMatrix, int yMatrix, size_t zSrcChannels,
-		int xStride, int yStride, int xOffset, int yOffset,
-		int nDepthwise, int xConv, int yConv, cudaStream_t stream )
+		int nDepthwise, const NNSamplingParam& sp, cudaStream_t stream )
 {
 	const int		maxBufSize = 64 ;
 	unsigned int	nBatchSamples =
@@ -389,8 +384,7 @@ template <class S> void nncuda_Matrix_DeltaBack
 			( pDstDelta, dimDstDelta, pSrcDelta, dimSrcDelta,
 				pMatrix, xMatrix, yMatrix,
 				zSrcChannels, zSrcBlock,
-				xStride, yStride, xOffset, yOffset,
-				nDepthwise, xConv, yConv, xThreads, yThreads, zThreads ) ;
+				nDepthwise, sp, xThreads, yThreads, zThreads ) ;
 }
 
 
@@ -405,8 +399,7 @@ __global__ void nnkernel_CalcMatrixGradient
 		int xMatrix, int yMatrix, size_t iMatrixBias,
 		const float * pDelta, NNBufDim dimDelta,
 		const float * pSrc, NNBufDim dimSrc,
-		int xStride, int yStride, int xOffset, int yOffset,
-		int xConv, int yConv, int xThreads, int yThreads, int zThreads )
+		NNSamplingParam sp, int xThreads, int yThreads, int zThreads )
 {
 	const int	tx = threadIdx.x ;
 	const int	ty = threadIdx.y ;
@@ -443,7 +436,7 @@ __global__ void nnkernel_CalcMatrixGradient
 		for ( int ySub = 0; ySub < BY; ySub ++ )
 		{
 			const int	yDelta = by * BY + ySub ;
-			if ( yDelta * S::UpSamplingScaleY >= dimDelta.y )
+			if ( yDelta * sp.m_yUpScale >= dimDelta.y )
 			{
 				continue ;
 			}
@@ -451,7 +444,7 @@ __global__ void nnkernel_CalcMatrixGradient
 			{
 				const int	xDelta = bx * BX + xSub ;
 				bool		flagOutOfDimension = false ;
-				if ( xDelta * S::UpSamplingScaleX >= dimDelta.x )
+				if ( xDelta * sp.m_xUpScale >= dimDelta.x )
 				{
 					// ※ここで continue すると __syncthreads で全スレッドが揃わない
 					flagOutOfDimension = true ;
@@ -459,8 +452,8 @@ __global__ void nnkernel_CalcMatrixGradient
 				}
 
 				// 入力サンプリング
-				const int	xSrc = xDelta * S::UpSamplingScaleX * xStride + xOffset ;
-				const int	ySrc = yDelta * S::UpSamplingScaleY * yStride + yOffset ;
+				const int	xSrc = xDelta * sp.m_xUpScale * sp.m_xStride + sp.m_xOffset ;
+				const int	ySrc = yDelta * sp.m_yUpScale * sp.m_yStride + sp.m_yOffset ;
 				if ( !flagOutOfDimension )
 				if ( ty == 0 )
 				{
@@ -468,7 +461,7 @@ __global__ void nnkernel_CalcMatrixGradient
 					if ( z < zSrcCount )
 					{
 						vSrcDelta[tziSrcDelta + tx] =
-							S::Sample( pSrc, dimSrc, xSrc, ySrc, z, (size_t) xConv ) ;
+							S::Sample( pSrc, dimSrc, xSrc, ySrc, z, sp ) ;
 					}
 					else
 					{
@@ -482,7 +475,7 @@ __global__ void nnkernel_CalcMatrixGradient
 				for ( int i = txyi; i < yMatrixBufHeight; i += txyn )
 				{
 					vDstDelta[tziDstDelta + i] =
-						S::BackSample( ymBase + i, pDelta, dimDelta, xDelta, yDelta ) ;
+						S::BackSample( ymBase + i, pDelta, dimDelta, xDelta, yDelta, sp ) ;
 				}
 				__syncthreads() ;
 
@@ -517,8 +510,7 @@ template <class S> void cuda_CalcMatrixGradient
 		size_t xMatrix, size_t yMatrix, size_t iMatrixBias,
 		const float * pDelta, NNBufDim dimDelta,
 		const float * pSrc, NNBufDim dimSrc,
-		int xStride, int yStride, int xOffset, int yOffset,
-		int xConv, int yConv, cudaStream_t stream )
+		const NNSamplingParam& sp, cudaStream_t stream )
 {
 	const int		maxBufSize = 128 ;
 	unsigned int	xThreads = (unsigned int) min( min(xMatrix,cudaMaxThreadCount),
@@ -549,9 +541,7 @@ template <class S> void cuda_CalcMatrixGradient
 		<<<grid, threads, 0, stream>>>
 			( pGradient, dimGradient,
 				(int) xMatrix, (int) yMatrix, iMatrixBias,
-				pDelta, dimDelta, pSrc, dimSrc,
-				xStride, yStride, xOffset, yOffset,
-				xConv, yConv, xThreads, yThreads, zThreads ) ;
+				pDelta, dimDelta, pSrc, dimSrc, sp, xThreads, yThreads, zThreads ) ;
 }
 
 #endif

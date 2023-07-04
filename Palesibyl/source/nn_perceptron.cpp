@@ -1995,19 +1995,23 @@ void NNPerceptron::cpuMatrixDeltaBack
 			}
 			for ( int yc = 0; (size_t) yc < pSampler->m_yConv; yc ++ )
 			{
-				const int	ySrc = ((int) yDst - yc - pSampler->m_yOffset) / pSampler->m_yStride ;
+				const int	ySrc = ((int) yDst - yc * pSampler->m_yPitch
+										- pSampler->m_yOffset) / pSampler->m_yStride ;
 				if ( (ySrc < 0)
 					|| ((size_t) ySrc * nUpSamplingScaleY >= dimInDelta.y)
-					|| (ySrc * pSampler->m_yStride + pSampler->m_yOffset != (int) yDst - yc) )
+					|| (ySrc * pSampler->m_yStride + pSampler->m_yOffset
+										!= (int) yDst - yc * pSampler->m_yPitch) )
 				{
 					continue ;
 				}
 				for ( int xc = 0; xc < pSampler->m_xConv; xc ++ )
 				{
-					const int	xSrc = (xDst - xc - pSampler->m_xOffset) / pSampler->m_xStride ;
+					const int	xSrc = (xDst - xc * pSampler->m_xPitch
+											- pSampler->m_xOffset) / pSampler->m_xStride ;
 					if ( (xSrc < 0)
 						|| ((size_t) xSrc * nUpSamplingScaleX >= dimInDelta.x)
-						|| (xSrc * pSampler->m_xStride + pSampler->m_xOffset != xDst - xc) )
+						|| (xSrc * pSampler->m_xStride + pSampler->m_xOffset
+											!= xDst - xc * pSampler->m_xPitch) )
 					{
 						continue ;
 					}

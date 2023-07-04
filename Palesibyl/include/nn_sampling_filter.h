@@ -9,14 +9,8 @@ namespace	Palesibyl
 // 入力サンプリング・フィルタ関数
 //////////////////////////////////////////////////////////////////////////////
 
-class	NNSamplingFilter
+class	NNSamplingFilter	: public NNSamplingParam
 {
-public:
-	int	m_xStride, m_yStride ;
-	int	m_xOffset, m_yOffset ;
-	int	m_xConv, m_yConv ;
-	int	m_xPadding, m_yPadding ;	// 出力サイズを変えない場合: xConv-1, yConv-1
-
 protected:
 	static std::map
 		< std::string,
@@ -43,14 +37,9 @@ public:
 		( int xStride = 1, int yStride = 1,
 			int xOffset = 0, int yOffset = 0,
 			int xConv = 1, int yConv = 1,
-			int xPad = 0, int yPad = 0 ) ;
-	// ストライド情報
-	void SetStride
-		( int xStride, int yStride,
-			int xOffset = 0, int yOffset = 0 ) ;
-	// 畳み込み情報
-	void SetConvolution
-		( int xConv, int yConv, bool padding = true ) ;
+			int xPad = 0, int yPad = 0,
+			int xPitch = 1, int yPitch = 1,
+			int xUpScale = 1, int yUpScale = 1 ) ;
 	// フィルタ名
 	virtual const char * GetSamplerName( void) const = 0 ;
 	// 入力層でなければならないか？
@@ -127,9 +116,12 @@ public:
 		( int xStride = 1, int yStride = 1,
 			int xOffset = 0, int yOffset = 0,
 			int xConv = 1, int yConv = 1,
-			int xPad = 0, int yPad = 0 )
+			int xPad = 0, int yPad = 0,
+			int xPitch = 1, int yPitch = 1,
+			int xUpScale = 1, int yUpScale = 1 )
 		: NNSamplingFilter
-			( xStride, yStride, xOffset, yOffset, xConv, yConv, xPad, yPad ) { }
+			( xStride, yStride, xOffset, yOffset,
+				xConv, yConv, xPad, yPad, xPitch, yPitch, xUpScale, yUpScale ) { }
 	// フィルタ名
 	virtual const char * GetSamplerName( void) const
 	{
@@ -143,19 +135,11 @@ public:
 	// 出力サイズ計算
 	virtual NNBufDim CalcOutputDim( const NNBufDim& dimSrc ) const
 	{
-		return	S::CalcOutputDim( NNSamplingFilter::CalcOutputDim( dimSrc ) ) ;
+		return	S::CalcOutputDim( NNSamplingFilter::CalcOutputDim( dimSrc ), *this ) ;
 	}
 	virtual size_t CalcOutputChannels( size_t nMatrixLines ) const
 	{
-		return	S::CalcOutputChannels( nMatrixLines ) ;
-	}
-	virtual size_t UpSamplingScaleX( void ) const
-	{
-		return	S::UpSamplingScaleX ;
-	}
-	virtual size_t UpSamplingScaleY( void ) const
-	{
-		return	S::UpSamplingScaleY ;
+		return	S::CalcOutputChannels( nMatrixLines, *this ) ;
 	}
 	// 入力チャネル数計算
 	virtual size_t ConvChannelCount( size_t zSrc, size_t xMatrix ) const
@@ -177,7 +161,7 @@ public:
 		const int	ySrc = yDst * m_yStride + m_yOffset ;
 		for ( size_t z = 0; z < zSrcCount; z ++ )
 		{
-			pDst[z] = S::Sample( pSrc, dimSrc, xSrc, ySrc, z, m_xConv ) ;
+			pDst[z] = S::Sample( pSrc, dimSrc, xSrc, ySrc, z, *this ) ;
 		}
 		for ( size_t z = zSrcCount; z < zChannels; z ++ )
 		{
@@ -191,7 +175,7 @@ public:
 	{
 		for ( size_t z = 0; z < zChannels; z ++ )
 		{
-			pDst[z] = S::BackSample( z, pSrc, dimSrc, xSrc, ySrc ) ;
+			pDst[z] = S::BackSample( z, pSrc, dimSrc, xSrc, ySrc, *this ) ;
 		}
 	}
 	// CPU での１サンプル行列計算（出力座標は出力チャネル操作のみに影響）
@@ -202,7 +186,7 @@ public:
 			size_t iMatrixBias, size_t nDepthwise )
 	{
 		cpuSample( pSrcBuf, xDst, yDst, zSrcChannels, pSrc, dimSrc, iMatrixBias ) ;
-		S::cpuMatrix( pDst, xDst, yDst, matrix, pSrcBuf, nDepthwise, iMatrixBias ) ;
+		S::cpuMatrix( pDst, xDst, yDst, matrix, pSrcBuf, nDepthwise, iMatrixBias, *this ) ;
 	}
 	// CUDA 行列計算
 	virtual inline void cudaMatrix
@@ -215,8 +199,7 @@ public:
 		S::cudaMatrix
 			( pDst, dimDst, pSrc, dimSrc,
 				pMatrix, xMatrix, yMatrix, iMatrixBias,
-				m_xStride, m_yStride, m_xOffset, m_yOffset,
-				nDepthwise, m_xConv, m_yConv, stream ) ;
+				nDepthwise, *this, stream ) ;
 	}
 	// CUDA 行列勾配計算
 	virtual void cudaCalcMatrixGradient
@@ -231,8 +214,7 @@ public:
 				xGradientBlockSize, yGradientBlockSize,
 				xMatrix, yMatrix, iMatrixBias,
 				pDelta, dimDelta, pSrc, dimSrc,
-				m_xStride, m_yStride, m_xOffset, m_yOffset,
-				nDepthwise, m_xConv, m_yConv, stream ) ;
+				nDepthwise, *this, stream ) ;
 	}
 	// 行列のδ逆伝播
 	virtual void cpuAddMatrixDeltaBackAt
@@ -261,9 +243,7 @@ public:
 		S::cudaMatrixDeltaBack
 			( pDstDelta, dimDstDelta, pSrcDelta, dimSrcDelta,
 				pMatrix, xMatrix, yMatrix, zSrcChannels,
-				m_xStride, m_yStride,
-				m_xOffset, m_yOffset,
-				nDepthwise, m_xConv, m_yConv, stream ) ;
+				nDepthwise, *this, stream ) ;
 	}
 } ;
 
@@ -314,10 +294,26 @@ public:
 class	NNSamplerInjection	: public NNGenSamplingFilter<NNBufSampler> {} ;
 class	NNSamplerClamp	: public NNGenSamplingFilter<NNBufClampSampler> {} ;
 class	NNSamplerEdge	: public NNGenSamplingFilter<NNBufEdgeSampler> {} ;
-class	NNSamplerUp2x2	: public NNGenSamplingFilter<NNBufUpSampler2x2> {} ;
-class	NNSamplerUp4x4	: public NNGenSamplingFilter<NNBufUpSampler4x4> {} ;
-class	NNSamplerUp8x8	: public NNGenSamplingFilter<NNBufUpSampler8x8> {} ;
-class	NNSamplerUp16x16	: public NNGenSamplingFilter<NNBufUpSampler16x16> {} ;
+
+class	NNSamplerUpSampler	: public NNGenSamplingFilter<NNBufUpSampler>
+{
+public:
+	NNSamplerUpSampler( int xUpScale = 2, int yUpScale = 2 )
+	{
+		NNSamplingParam::m_xUpScale = (int32_t) xUpScale ;
+		NNSamplingParam::m_yUpScale = (int32_t) yUpScale ;
+	}
+} ;
+
+class	NNSamplerUp2x2	: public NNGenSamplingFilter<NNBufUpSampler2x2>
+{
+public:
+	NNSamplerUp2x2( void )
+	{
+		NNSamplingParam::m_xUpScale = 2 ;
+		NNSamplingParam::m_yUpScale = 2 ;
+	}
+} ;
 
 class	NNSamplerOneHot	: public NNGenSamplingFilter<NNBufOneHotSampler>
 {
@@ -387,10 +383,7 @@ public:
 			( pGradient, dimGradient,
 				xGradientBlockSize, yGradientBlockSize,
 				xMatrix, yMatrix, iMatrixBias,
-				pDelta, dimDelta, pSrc, dimSrc,
-				NNSamplingFilter::m_xStride, NNSamplingFilter::m_yStride,
-				NNSamplingFilter::m_xOffset, NNSamplingFilter::m_yOffset,
-				NNSamplingFilter::m_xConv, NNSamplingFilter::m_yConv, stream ) ;
+				pDelta, dimDelta, pSrc, dimSrc, *this, stream ) ;
 	}
 	// CUDA 行列のδ逆伝播
 	virtual void cudaMatrixDeltaBack
@@ -402,9 +395,7 @@ public:
 		nncuda_Matrix_DeltaBack_Injection_Sp
 			( pDstDelta, dimDstDelta, pSrcDelta, dimSrcDelta,
 				pMatrix, xMatrix, yMatrix, zSrcChannels,
-				NNSamplingFilter::m_xStride, NNSamplingFilter::m_yStride,
-				NNSamplingFilter::m_xOffset, NNSamplingFilter::m_yOffset,
-				nDepthwise, NNSamplingFilter::m_xConv, NNSamplingFilter::m_yConv, stream ) ;
+				nDepthwise, *this, stream ) ;
 	}
 } ;
 
@@ -440,10 +431,7 @@ public:
 			( pGradient, dimGradient,
 				xGradientBlockSize, yGradientBlockSize,
 				xMatrix, yMatrix, iMatrixBias,
-				pDelta, dimDelta, pSrc, dimSrc,
-				NNSamplingFilter::m_xStride, NNSamplingFilter::m_yStride,
-				NNSamplingFilter::m_xOffset, NNSamplingFilter::m_yOffset,
-				NNSamplingFilter::m_xConv, NNSamplingFilter::m_yConv, stream ) ;
+				pDelta, dimDelta, pSrc, dimSrc, *this, stream ) ;
 	}
 	// CUDA 行列のδ逆伝播
 	virtual void cudaMatrixDeltaBack
@@ -455,9 +443,7 @@ public:
 		nncuda_Matrix_DeltaBack_Conv_Sp
 			( pDstDelta, dimDstDelta, pSrcDelta, dimSrcDelta,
 				pMatrix, xMatrix, yMatrix, zSrcChannels,
-				NNSamplingFilter::m_xStride, NNSamplingFilter::m_yStride,
-				NNSamplingFilter::m_xOffset, NNSamplingFilter::m_yOffset,
-				nDepthwise, NNSamplingFilter::m_xConv, NNSamplingFilter::m_yConv, stream ) ;
+				nDepthwise, *this, stream ) ;
 	}
 } ;
 

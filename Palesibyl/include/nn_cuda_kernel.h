@@ -44,72 +44,42 @@ void nncuda_Matrix_Clamp
 		const float * pSrc, NNBufDim dimSrc,
 		const float * pMatrix,
 		size_t xMatrix, size_t yMatrix, size_t iMatrixBias,
-		int xStride, int yStride, int xOffset, int yOffset,
-		int nDepthwise, int xConv, int yConv, cudaStream_t stream ) ;
+		int nDepthwise, const NNSamplingParam& sp, cudaStream_t stream ) ;
 
 void nncuda_Matrix_Edge
 	( float * pDst, NNBufDim dimDst,
 		const float * pSrc, NNBufDim dimSrc,
 		const float * pMatrix,
 		size_t xMatrix, size_t yMatrix, size_t iMatrixBias,
-		int xStride, int yStride, int xOffset, int yOffset,
-		int nDepthwise, int xConv, int yConv, cudaStream_t stream ) ;
+		int nDepthwise, const NNSamplingParam& sp, cudaStream_t stream ) ;
 
 void nncuda_Matrix_Conv_Clamp
 	( float * pDst, NNBufDim dimDst,
 		const float * pSrc, NNBufDim dimSrc,
 		const float * pMatrix,
 		size_t xMatrix, size_t yMatrix, size_t iMatrixBias,
-		int xStride, int yStride, int xOffset, int yOffset,
-		int nDepthwise, int xConv, int yConv, cudaStream_t stream ) ;
+		int nDepthwise, const NNSamplingParam& sp, cudaStream_t stream ) ;
 
 void nncuda_Matrix_Conv_Edge
 	( float * pDst, NNBufDim dimDst,
 		const float * pSrc, NNBufDim dimSrc,
 		const float * pMatrix,
 		size_t xMatrix, size_t yMatrix, size_t iMatrixBias,
-		int xStride, int yStride, int xOffset, int yOffset,
-		int nDepthwise, int xConv, int yConv, cudaStream_t stream ) ;
+		int nDepthwise, const NNSamplingParam& sp, cudaStream_t stream ) ;
 
-void nncuda_Matrix_Up2x2
+void nncuda_Matrix_UpSampler
 	( float * pDst, NNBufDim dimDst,
 		const float * pSrc, NNBufDim dimSrc,
 		const float * pMatrix,
 		size_t xMatrix, size_t yMatrix, size_t iMatrixBias,
-		int xStride, int yStride, int xOffset, int yOffset,
-		int nDepthwise, int xConv, int yConv, cudaStream_t stream ) ;
-
-void nncuda_Matrix_Up4x4
-	( float * pDst, NNBufDim dimDst,
-		const float * pSrc, NNBufDim dimSrc,
-		const float * pMatrix,
-		size_t xMatrix, size_t yMatrix, size_t iMatrixBias,
-		int xStride, int yStride, int xOffset, int yOffset,
-		int nDepthwise, int xConv, int yConv, cudaStream_t stream ) ;
-
-void nncuda_Matrix_Up8x8
-	( float * pDst, NNBufDim dimDst,
-		const float * pSrc, NNBufDim dimSrc,
-		const float * pMatrix,
-		size_t xMatrix, size_t yMatrix, size_t iMatrixBias,
-		int xStride, int yStride, int xOffset, int yOffset,
-		int nDepthwise, int xConv, int yConv, cudaStream_t stream ) ;
-
-void nncuda_Matrix_Up16x16
-	( float * pDst, NNBufDim dimDst,
-		const float * pSrc, NNBufDim dimSrc,
-		const float * pMatrix,
-		size_t xMatrix, size_t yMatrix, size_t iMatrixBias,
-		int xStride, int yStride, int xOffset, int yOffset,
-		int nDepthwise, int xConv, int yConv, cudaStream_t stream ) ;
+		int nDepthwise, const NNSamplingParam& sp, cudaStream_t stream ) ;
 
 void nncuda_Matrix_OneHot
 	( float * pDst, NNBufDim dimDst,
 		const float * pSrc, NNBufDim dimSrc,
 		const float * pMatrix,
 		size_t xMatrix, size_t yMatrix, size_t iMatrixBias,
-		int xStride, int yStride, int xOffset, int yOffset,
-		int nDepthwise, int xConv, int yConv, cudaStream_t stream ) ;
+		int nDepthwise, const NNSamplingParam& sp, cudaStream_t stream ) ;
 
 
 
@@ -121,64 +91,35 @@ void nncuda_Matrix_DeltaBack_Injection
 		const float * pSrcDelta, NNBufDim dimSrcDelta,
 		const float * pMatrix,
 		int xMatrix, int yMatrix, size_t zSrcChannels,
-		int xStride, int yStride, int xOffset, int yOffset,
-		int nDepthwise, int xConv, int yConv, cudaStream_t stream ) ;
+		int nDepthwise, const NNSamplingParam& sp, cudaStream_t stream ) ;
 
 void nncuda_Matrix_DeltaBack_Injection_Sp
 	( float * pDstDelta, NNBufDim dimDstDelta,
 		const float * pSrcDelta, NNBufDim dimSrcDelta,
 		const float * pMatrix,
 		int xMatrix, int yMatrix, size_t zSrcChannels,
-		int xStride, int yStride, int xOffset, int yOffset,
-		int nDepthwise, int xConv, int yConv, cudaStream_t stream ) ;
+		int nDepthwise, const NNSamplingParam& sp, cudaStream_t stream ) ;
 
 void nncuda_Matrix_DeltaBack_Conv
 	( float * pDstDelta, NNBufDim dimDstDelta,
 		const float * pSrcDelta, NNBufDim dimSrcDelta,
 		const float * pMatrix,
 		int xMatrix, int yMatrix, size_t zSrcChannels,
-		int xStride, int yStride, int xOffset, int yOffset,
-		int nDepthwise, int xConv, int yConv, cudaStream_t stream ) ;
+		int nDepthwise, const NNSamplingParam& sp, cudaStream_t stream ) ;
 
 void nncuda_Matrix_DeltaBack_Conv_Sp
 	( float * pDstDelta, NNBufDim dimDstDelta,
 		const float * pSrcDelta, NNBufDim dimSrcDelta,
 		const float * pMatrix,
 		int xMatrix, int yMatrix, size_t zSrcChannels,
-		int xStride, int yStride, int xOffset, int yOffset,
-		int nDepthwise, int xConv, int yConv, cudaStream_t stream ) ;
+		int nDepthwise, const NNSamplingParam& sp, cudaStream_t stream ) ;
 
-void nncuda_Matrix_DeltaBack_Up2x2
+void nncuda_Matrix_DeltaBack_UpSampler
 	( float * pDstDelta, NNBufDim dimDstDelta,
 		const float * pSrcDelta, NNBufDim dimSrcDelta,
 		const float * pMatrix,
 		int xMatrix, int yMatrix, size_t zSrcChannels,
-		int xStride, int yStride, int xOffset, int yOffset,
-		int nDepthwise, int xConv, int yConv, cudaStream_t stream ) ;
-
-void nncuda_Matrix_DeltaBack_Up4x4
-	( float * pDstDelta, NNBufDim dimDstDelta,
-		const float * pSrcDelta, NNBufDim dimSrcDelta,
-		const float * pMatrix,
-		int xMatrix, int yMatrix, size_t zSrcChannels,
-		int xStride, int yStride, int xOffset, int yOffset,
-		int nDepthwise, int xConv, int yConv, cudaStream_t stream ) ;
-
-void nncuda_Matrix_DeltaBack_Up8x8
-	( float * pDstDelta, NNBufDim dimDstDelta,
-		const float * pSrcDelta, NNBufDim dimSrcDelta,
-		const float * pMatrix,
-		int xMatrix, int yMatrix, size_t zSrcChannels,
-		int xStride, int yStride, int xOffset, int yOffset,
-		int nDepthwise, int xConv, int yConv, cudaStream_t stream ) ;
-
-void nncuda_Matrix_DeltaBack_Up16x16
-	( float * pDstDelta, NNBufDim dimDstDelta,
-		const float * pSrcDelta, NNBufDim dimSrcDelta,
-		const float * pMatrix,
-		int xMatrix, int yMatrix, size_t zSrcChannels,
-		int xStride, int yStride, int xOffset, int yOffset,
-		int nDepthwise, int xConv, int yConv, cudaStream_t stream ) ;
+		int nDepthwise, const NNSamplingParam& sp, cudaStream_t stream ) ;
 
 size_t nncuda_IsAcceptableMatrixSize
 	( size_t xMatrix, size_t yMatrix, size_t zSrcChannels ) ;
@@ -194,8 +135,7 @@ void nncuda_CalcMatrixGradient_Clamp
 		size_t xMatrix, size_t yMatrix, size_t iMatrixBias,
 		const float * pDelta, NNBufDim dimDelta,
 		const float * pSrc, NNBufDim dimSrc,
-		int xStride, int yStride, int xOffset, int yOffset,
-		int xConv, int yConv, cudaStream_t stream ) ;
+		const NNSamplingParam& sp, cudaStream_t stream ) ;
 
 void nncuda_CalcMatrixGradient_Edge
 	( float * pGradient, NNBufDim dimGradient,
@@ -203,8 +143,7 @@ void nncuda_CalcMatrixGradient_Edge
 		size_t xMatrix, size_t yMatrix, size_t iMatrixBias,
 		const float * pDelta, NNBufDim dimDelta,
 		const float * pSrc, NNBufDim dimSrc,
-		int xStride, int yStride, int xOffset, int yOffset,
-		int xConv, int yConv, cudaStream_t stream ) ;
+		const NNSamplingParam& sp, cudaStream_t stream ) ;
 
 void nncuda_CalcMatrixGradient_Edge_Sp
 	( float * pGradient, NNBufDim dimGradient,
@@ -212,9 +151,7 @@ void nncuda_CalcMatrixGradient_Edge_Sp
 		size_t xMatrix, size_t yMatrix, size_t iMatrixBias,
 		const float * pDelta, NNBufDim dimDelta,
 		const float * pSrc, NNBufDim dimSrc,
-		int xStride, int yStride, int xOffset, int yOffset,
-		int xConv, int yConv, cudaStream_t stream ) ;
-
+		const NNSamplingParam& sp, cudaStream_t stream ) ;
 
 void nncuda_CalcMatrixGradient_Conv_Clamp
 	( float * pGradient, NNBufDim dimGradient,
@@ -222,8 +159,7 @@ void nncuda_CalcMatrixGradient_Conv_Clamp
 		size_t xMatrix, size_t yMatrix, size_t iMatrixBias,
 		const float * pDelta, NNBufDim dimDelta,
 		const float * pSrc, NNBufDim dimSrc,
-		int xStride, int yStride, int xOffset, int yOffset,
-		int xConv, int yConv, cudaStream_t stream ) ;
+		const NNSamplingParam& sp, cudaStream_t stream ) ;
 
 void nncuda_CalcMatrixGradient_Conv_Edge
 	( float * pGradient, NNBufDim dimGradient,
@@ -231,8 +167,7 @@ void nncuda_CalcMatrixGradient_Conv_Edge
 		size_t xMatrix, size_t yMatrix, size_t iMatrixBias,
 		const float * pDelta, NNBufDim dimDelta,
 		const float * pSrc, NNBufDim dimSrc,
-		int xStride, int yStride, int xOffset, int yOffset,
-		int xConv, int yConv, cudaStream_t stream ) ;
+		const NNSamplingParam& sp, cudaStream_t stream ) ;
 
 void nncuda_CalcMatrixGradient_Conv_Edge_Sp
 	( float * pGradient, NNBufDim dimGradient,
@@ -240,44 +175,15 @@ void nncuda_CalcMatrixGradient_Conv_Edge_Sp
 		size_t xMatrix, size_t yMatrix, size_t iMatrixBias,
 		const float * pDelta, NNBufDim dimDelta,
 		const float * pSrc, NNBufDim dimSrc,
-		int xStride, int yStride, int xOffset, int yOffset,
-		int xConv, int yConv, cudaStream_t stream ) ;
+		const NNSamplingParam& sp, cudaStream_t stream ) ;
 
-void nncuda_CalcMatrixGradient_Up2x2
+void nncuda_CalcMatrixGradient_UpSampler
 	( float * pGradient, NNBufDim dimGradient,
 		size_t xGradientBlockSize, size_t yGradientBlockSize,
 		size_t xMatrix, size_t yMatrix, size_t iMatrixBias,
 		const float * pDelta, NNBufDim dimDelta,
 		const float * pSrc, NNBufDim dimSrc,
-		int xStride, int yStride, int xOffset, int yOffset,
-		int xConv, int yConv, cudaStream_t stream ) ;
-
-void nncuda_CalcMatrixGradient_Up4x4
-	( float * pGradient, NNBufDim dimGradient,
-		size_t xGradientBlockSize, size_t yGradientBlockSize,
-		size_t xMatrix, size_t yMatrix, size_t iMatrixBias,
-		const float * pDelta, NNBufDim dimDelta,
-		const float * pSrc, NNBufDim dimSrc,
-		int xStride, int yStride, int xOffset, int yOffset,
-		int xConv, int yConv, cudaStream_t stream ) ;
-
-void nncuda_CalcMatrixGradient_Up8x8
-	( float * pGradient, NNBufDim dimGradient,
-		size_t xGradientBlockSize, size_t yGradientBlockSize,
-		size_t xMatrix, size_t yMatrix, size_t iMatrixBias,
-		const float * pDelta, NNBufDim dimDelta,
-		const float * pSrc, NNBufDim dimSrc,
-		int xStride, int yStride, int xOffset, int yOffset,
-		int xConv, int yConv, cudaStream_t stream ) ;
-
-void nncuda_CalcMatrixGradient_Up16x16
-	( float * pGradient, NNBufDim dimGradient,
-		size_t xGradientBlockSize, size_t yGradientBlockSize,
-		size_t xMatrix, size_t yMatrix, size_t iMatrixBias,
-		const float * pDelta, NNBufDim dimDelta,
-		const float * pSrc, NNBufDim dimSrc,
-		int xStride, int yStride, int xOffset, int yOffset,
-		int xConv, int yConv, cudaStream_t stream ) ;
+		const NNSamplingParam& sp, cudaStream_t stream ) ;
 
 void nncuda_CalcMatrixGradient_OneHot
 	( float * pGradient, NNBufDim dimGradient,
@@ -285,8 +191,7 @@ void nncuda_CalcMatrixGradient_OneHot
 		size_t xMatrix, size_t yMatrix, size_t iMatrixBias,
 		const float * pDelta, NNBufDim dimDelta,
 		const float * pSrc, NNBufDim dimSrc,
-		int xStride, int yStride, int xOffset, int yOffset,
-		int xConv, int yConv, cudaStream_t stream ) ;
+		const NNSamplingParam& sp, cudaStream_t stream ) ;
 
 size_t nncuda_CalcMatrixGradientBlockSizeX( size_t x, size_t y ) ;
 size_t nncuda_CalcMatrixGradientBlockSizeY( size_t x, size_t y ) ;
