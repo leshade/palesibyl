@@ -116,6 +116,8 @@ public:
 	// フォーマット設定
 	void SetFormat( const WAVEFORMAT& format ) ;
 	void SetFormat( size_t nFrequency, size_t nChannels, size_t bitsPerSample = 16 ) ;
+	// 周波数変換
+	void ResampleFrequency( uint32_t nFrequency ) ;
 	// データ取得
 	std::shared_ptr<NNBuffer> GetBuffer( void ) const ;
 	// データ設定
@@ -151,6 +153,7 @@ protected:
 	size_t	m_nReqChannels ;
 	size_t	m_nPackSamples ;
 	size_t	m_nUnpackSamples ;
+	size_t	m_nReqFrequency ;
 	size_t	m_nLoadedFrequency ;
 
 public:
@@ -159,7 +162,8 @@ public:
 		( const char * pszSourceDir,
 			const char * pszPairDir,
 			bool flagOutputPair, size_t nReqChannels = 0,
-			size_t nPackSamples = 1, size_t nUnpackSamples = 1 ) ;
+			size_t nPackSamples = 1, size_t nUnpackSamples = 1,
+			size_t nReqFrequency = 0 ) ;
 	// 消滅関数
 	~NNMLPShellWaveIterator( void ) ;
 

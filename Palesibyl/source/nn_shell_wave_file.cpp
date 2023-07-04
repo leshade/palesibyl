@@ -370,6 +370,53 @@ void WaveFile::SetFormat( size_t nFrequency, size_t nChannels, size_t bitsPerSam
 	m_format.nBytesPerSec = m_format.nFrequency * m_format.wBlockAlign ;
 }
 
+// 周波数変換
+//////////////////////////////////////////////////////////////////////////////
+void WaveFile::ResampleFrequency( uint32_t nFrequency )
+{
+	if ( (m_pWave == nullptr)
+		|| (m_format.nFrequency == nFrequency) )
+	{
+		return ;
+	}
+	const NNBufDim	dimSrcWave = m_pWave->GetSize() ;
+	const NNBufDim	dimDstWave( dimSrcWave.x * nFrequency / m_format.nFrequency,
+								dimSrcWave.y, dimSrcWave.z ) ;
+	std::shared_ptr<NNBuffer>	pDstBuf = std::make_shared<NNBuffer>() ;
+	pDstBuf->Create( dimDstWave ) ;
+
+	for ( size_t y = 0; y < dimDstWave.y; y ++ )
+	{
+		for ( size_t x = 0; x < dimDstWave.x; x ++ )
+		{
+			size_t	xSrc = x * m_format.nFrequency / nFrequency ;
+			float	dec = (float) (x * m_format.nFrequency % nFrequency)
+													/ (float) nFrequency ;
+			assert( xSrc < dimSrcWave.x ) ;
+			const float *	pSrcWave = m_pWave->GetConstBufferAt( xSrc, y ) ;
+			float *			pDstWave = pDstBuf->GetBufferAt( x, y ) ;
+			if ( xSrc + 1 < dimSrcWave.x )
+			{
+				for ( size_t z = 0; z < dimDstWave.z; z ++ )
+				{
+					pDstWave[z] = pSrcWave[z] * (1.0f - dec)
+									+ pSrcWave[dimDstWave.z + z] * dec ;
+				}
+			}
+			else
+			{
+				for ( size_t z = 0; z < dimDstWave.z; z ++ )
+				{
+					pDstWave[z] = pSrcWave[z] ;
+				}
+			}
+		}
+	}
+
+	m_pWave = pDstBuf ;
+	m_format.nFrequency = nFrequency ;
+}
+
 // データ取得
 //////////////////////////////////////////////////////////////////////////////
 std::shared_ptr<NNBuffer> WaveFile::GetBuffer( void ) const
@@ -483,11 +530,12 @@ NNMLPShellWaveIterator::NNMLPShellWaveIterator
 	( const char * pszSourceDir,
 		const char * pszPairDir,
 		bool flagOutputPair, size_t nReqChannels,
-		size_t nPackSamples, size_t nUnpackSamples )
+		size_t nPackSamples, size_t nUnpackSamples, size_t nReqFrequency )
 	: NNMLPShellFileIterator( pszSourceDir, pszPairDir, flagOutputPair ),
 		m_nReqChannels( nReqChannels ),
 		m_nPackSamples( nPackSamples ),
 		m_nUnpackSamples( nUnpackSamples ),
+		m_nReqFrequency( nReqFrequency ),
 		m_nLoadedFrequency( 44100 )
 {
 }
@@ -509,6 +557,12 @@ std::shared_ptr<NNBuffer>
 		return	nullptr ;
 	}
 	m_nLoadedFrequency = wavfile.GetFormat().nFrequency ;
+	//
+	if ( (m_nReqFrequency != 0) && (m_nLoadedFrequency != m_nReqFrequency) )
+	{
+		wavfile.ResampleFrequency( (uint32_t) m_nReqFrequency ) ;
+		m_nLoadedFrequency = wavfile.GetFormat().nFrequency ;
+	}
 	//
 	std::shared_ptr<NNBuffer>
 				pWave = std::make_shared<NNBuffer>( *(wavfile.GetBuffer()) ) ;
