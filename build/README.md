@@ -105,14 +105,9 @@
   - `AppendConvLayer` - 畳み込みレイヤー
   - `AppendDepthwiseLayer` - 疎なチャネル別結合レイヤー
   - `AppendDepthwiseConv` - 畳み込みレイヤー（チャネル別）
+  - `AppendUpsamplingLayer` - アップサンプリングレイヤー
   - `AppendUp2x2Layer` - 2x2 アップサンプリングレイヤー
-  - `AppendUp4x4Layer` - 4x4 アップサンプリングレイヤー
-  - `AppendUp8x8Layer` - 8x8 アップサンプリングレイヤー
-  - `AppendUp16x16Layer` - 16x16 アップサンプリングレイヤー
-  - `AppendUp2x2FixLayer` - 2x2 アップサンプリングレイヤー（変換無し）
-  - `AppendUp4x4FixLayer` - 4x4 アップサンプリングレイヤー（変換無し）
-  - `AppendUp8x8FixLayer` - 8x8 アップサンプリングレイヤー（変換無し）
-  - `AppendUp16x16FixLayer` - 16x16 アップサンプリングレイヤー（変換無し）
+  - `AppendUpsamplingFixLayer` - アップサンプリングレイヤー（変換無し）
   - `AppendLayerAsOneHot` - インデックス値を one-hot ベクトルとして入力するレイヤー
   - `AppendFastSoftmax` - softmax, 又は argmax 高速化レイヤー
   - `AppendMaxPoolLayer` - MaxPooling 畳み込みレイヤー
@@ -153,7 +148,6 @@
 * レイヤー  
   * 全結合レイヤーは各サンプル毎のチャネルの全結合となります。  
     Palesibyl では Conv1x1 と同等です。
-  * 規定サイズ以外のアップサンプリングは、任意のサンプリングクラスの実装が必要です。
   * AppendLayerAsOneHot は入力レイヤーのみに使用できます。
   * AvgPool は未実装です。
   
