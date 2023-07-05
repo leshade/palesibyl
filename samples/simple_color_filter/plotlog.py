@@ -53,8 +53,10 @@ def PlotLogCSV():
 		if	yscale_log:
 			plt.yscale( "log" )
 		else:
-			ax.set_ylim( min( max(tl), min(vl), 0.0 ),
-						 max( max(tl), max(vl) ) * 1.2 )
+			tvmin = min( min(tl), min(vl) )
+			tvmax = max( max(tl), max(vl) )
+			ax.set_ylim( min( tvmin - abs(tvmin) * 0.1, 0.0 ),
+						 tvmax + abs(tvmax) * 0.2 )
 
 		plt.plot( x, vl, color="red", label=data.columns[1] )
 		plt.plot( x, tl, color="blue", label=data.columns[0] )
