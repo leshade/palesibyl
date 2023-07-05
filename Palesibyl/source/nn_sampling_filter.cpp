@@ -123,7 +123,8 @@ void NNSamplingFilter::Serialize( NNSerializer& ser )
 bool NNSamplingFilter::Deserialize( NNDeserializer & dsr )
 {
 	NNSamplingParam&	sp = *this ;
-	dsr.Read( &sp, sizeof(NNSamplingParam) ) ;
+	size_t	nLeftBytes = dsr.GetChunkBytes() - (size_t) dsr.LocalPosition() ;
+	dsr.Read( &sp, min(sizeof(NNSamplingParam),nLeftBytes) ) ;
 	return	true ;
 }
 
