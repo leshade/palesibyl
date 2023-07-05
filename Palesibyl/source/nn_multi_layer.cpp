@@ -1346,7 +1346,7 @@ void NNMultiLayerPerceptron::GradientReflection
 		{
 			const float	norm = (lagArray.at(i).matGradient
 										/ (float) nGradient).FrobeniusNorm() ;
-			maxNorm = max( maxNorm, norm ) ;
+			maxNorm = max( maxNorm, norm * GetLayerAt(i)->GetGradientFactor() ) ;
 			nCount ++ ;
 		}
 	}
