@@ -17,8 +17,8 @@ namespace	Palesibyl
 //////////////////////////////////////////////////////////////////////////////
 
 // exp(x) の引数に入れられる凡その最大値
-//（壊れた時に inf -> nan 大量発生をさけ、原因を追究しやすくするため）
-constexpr static const float	EXP_MAX_CAP = 88.5f ;
+//（大きな値の時に inf -> nan 大量発生をさけるため）
+constexpr static const float	EXP_MAX_CAP = 80.0f ; // 88.5f ; ※少し余裕を持たせる
 
 inline __NN_CUDA_DEV__ float exp_sd( float x )
 {
