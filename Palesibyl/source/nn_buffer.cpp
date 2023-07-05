@@ -13,7 +13,7 @@ using namespace Palesibyl ;
 //////////////////////////////////////////////////////////////////////////////
 NNBuffer::NNBuffer( void )
 	: m_dimSize(0,0,0), m_commitBuf(false),
-		m_commitCuda(false), m_cudaFlags(cudaNoMemory)
+		m_commitCuda(false), m_invalidCuda(false), m_cudaFlags(cudaNoMemory)
 {
 }
 
@@ -21,7 +21,8 @@ NNBuffer::NNBuffer( void )
 //////////////////////////////////////////////////////////////////////////////
 NNBuffer::NNBuffer( const NNBuffer& buf )
 	: m_dimSize(buf.m_dimSize), m_commitBuf(buf.m_commitBuf),
-		m_commitCuda(buf.m_commitCuda), m_cudaFlags(buf.m_cudaFlags),
+		m_commitCuda(buf.m_commitCuda),
+		m_invalidCuda(buf.m_invalidCuda), m_cudaFlags(buf.m_cudaFlags),
 		m_buffer(buf.m_buffer), m_cudaMemory(buf.m_cudaMemory)
 {
 }
@@ -506,6 +507,7 @@ bool NNBuffer::CommitCuda( void )
 					? CudaFloat1DMemory::allocDeviceOnly
 					: CudaFloat1DMemory::allocDefault ) ;
 		m_commitCuda = true ;
+		m_invalidCuda = false ;
 		//
 		if ( m_commitBuf )
 		{
@@ -516,6 +518,12 @@ bool NNBuffer::CommitCuda( void )
 			m_buffer = nullptr ;
 			m_commitBuf = false ;
 		}
+	}
+	else if ( m_invalidCuda )
+	{
+		assert( m_cudaMemory != nullptr ) ;
+		m_cudaMemory->CopyToDevice() ;
+		m_invalidCuda = false ;
 	}
 	return	true ;
 }
@@ -534,6 +542,13 @@ void NNBuffer::UncommitCuda( void )
 bool NNBuffer::IsCommittedCuda( void ) const
 {
 	return	m_commitCuda ;
+}
+
+// 次の CommitCuda でホストメモリから CUDA デバイスへ転送する
+//////////////////////////////////////////////////////////////////////////////
+void NNBuffer::InvalidateCuda( void )
+{
+	m_invalidCuda = true ;
 }
 
 // フィル

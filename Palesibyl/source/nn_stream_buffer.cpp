@@ -67,6 +67,7 @@ size_t NNStreamBuffer::Shift( size_t xCount )
 			}
 			assert( m_xFilled >= xShift ) ;
 			m_xFilled -= xShift ;
+			InvalidateCuda() ;
 		}
 		else
 		{
@@ -120,6 +121,7 @@ size_t NNStreamBuffer::Stream( const NNBuffer& bufSrc, size_t xSrc, size_t xCoun
 
 	m_xFilled += dimCopy.x ;
 	assert( m_xFilled <= m_dimSize.x ) ;
+	InvalidateCuda() ;
 
 	return	dimCopy.x ;
 }

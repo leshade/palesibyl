@@ -28,6 +28,7 @@ protected:
 	NNBufDim								m_dimSize ;
 	bool									m_commitBuf ;
 	bool									m_commitCuda ;
+	bool									m_invalidCuda ;
 	uint32_t								m_cudaFlags ;
 	std::shared_ptr< std::vector<float> >	m_buffer ;
 	std::shared_ptr< CudaFloat1DMemory >	m_cudaMemory ;
@@ -107,6 +108,8 @@ public:
 	bool CommitCuda( void ) ;
 	void UncommitCuda( void ) ;
 	bool IsCommittedCuda( void ) const ;
+	// 次の CommitCuda でホストメモリから CUDA デバイスへ転送する
+	void InvalidateCuda( void ) ;
 	// フィル
 	void CudaFill( float fill, cudaStream_t stream ) ;
 	// CUDA デバイスへ転送
