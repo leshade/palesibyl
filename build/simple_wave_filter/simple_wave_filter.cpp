@@ -56,7 +56,8 @@ std::shared_ptr<NNMLPShell::Iterator> PalesibylApp::MakeLearningIter( void )
 {
 	return	std::make_shared<NNMLPShellWaveCropper>
 			( "learn\\source", "learn\\teacher",
-					NNBufDim( 1024/4, 256, 1 ), 4, 4 ) ;
+					NNBufDim( 1024/4, 256, 1 ),
+					NNMLPShellWaveCropper::cropPadZero, 4, 4 ) ;
 }
 
 // 予測用イテレーター作成

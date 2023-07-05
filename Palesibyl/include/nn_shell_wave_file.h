@@ -185,17 +185,28 @@ public:
 
 class	NNMLPShellWaveCropper	: public NNMLPShellWaveIterator
 {
+public:
+	// 境界範囲外の切り出し
+	enum	CropOutOfBounds
+	{
+		cropPadZero,	// 範囲外は 0.0 で埋める
+		cropWrap,		// 先頭から繰り返し
+		cropEdge,		// 端の値の延長
+	} ;
+
 protected:
 	std::random_device	m_random ;
 	std::mt19937		m_engine ;
 	NNBufDim			m_dimCrop ;
+	CropOutOfBounds		m_cobCrop ;
 
 public:
 	// 構築関数
 	NNMLPShellWaveCropper
-		( const char * pszSourceDir,
-			const char * pszPairDir, const NNBufDim& dimCrop,
-			size_t nPackSamples = 1, size_t nUnpackSamples = 1 ) ;
+		( const char * pszSourceDir, const char * pszPairDir,
+			const NNBufDim& dimCrop, CropOutOfBounds cob = cropPadZero,
+			size_t nPackSamples = 1, size_t nUnpackSamples = 1,
+			size_t nReqFrequency = 0 ) ;
 	// 読み込んだバッファを処理して次のデータとして設定する
 	virtual bool SetNextDataOnLoaded
 				( std::shared_ptr<NNBuffer> pSource,
@@ -211,7 +222,8 @@ public:
 	// 単純に WAVE を切り出す
 	std::shared_ptr<NNBuffer> CropWaveData
 		( std::shared_ptr<NNBuffer> pWave,
-			const std::vector<size_t>& samplesIndecies ) ;
+			const std::vector<size_t>& samplesIndecies,
+			CropOutOfBounds cob = cropPadZero ) ;
 
 } ;
 

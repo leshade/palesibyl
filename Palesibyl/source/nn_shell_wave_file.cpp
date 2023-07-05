@@ -605,12 +605,13 @@ bool NNMLPShellWaveIterator::SaveToFile
 NNMLPShellWaveCropper::NNMLPShellWaveCropper
 	( const char * pszSourceDir,
 		const char * pszPairDir, const NNBufDim& dimCrop,
-		size_t nPackSamples, size_t nUnpackSamples )
+		NNMLPShellWaveCropper::CropOutOfBounds cob,
+		size_t nPackSamples, size_t nUnpackSamples, size_t nReqFrequency )
 	: NNMLPShellWaveIterator
 			( pszSourceDir, pszPairDir, false,
-				dimCrop.z, nPackSamples, nUnpackSamples ),
+				dimCrop.z, nPackSamples, nUnpackSamples, nReqFrequency ),
 		m_engine( m_random() ),
-		m_dimCrop( dimCrop )
+		m_dimCrop( dimCrop ), m_cobCrop( cob )
 {
 }
 
@@ -650,7 +651,7 @@ std::shared_ptr<NNBuffer> NNMLPShellWaveCropper::CropSourceData
 	( std::shared_ptr<NNBuffer> pSource,
 		const std::vector<size_t>& samplesIndecies )
 {
-	return	CropWaveData( pSource, samplesIndecies ) ;
+	return	CropWaveData( pSource, samplesIndecies, m_cobCrop ) ;
 }
 
 // ソースの切り出し位置に対応する教師データを切り出す
@@ -659,14 +660,15 @@ std::shared_ptr<NNBuffer> NNMLPShellWaveCropper::CropTeachingData
 	( std::shared_ptr<NNBuffer> pTeaching,
 		const std::vector<size_t>& samplesIndecies )
 {
-	return	CropWaveData( pTeaching, samplesIndecies ) ;
+	return	CropWaveData( pTeaching, samplesIndecies, m_cobCrop ) ;
 }
 
 // 単純に WAVE を切り出す
 //////////////////////////////////////////////////////////////////////////////
 std::shared_ptr<NNBuffer> NNMLPShellWaveCropper::CropWaveData
 	( std::shared_ptr<NNBuffer> pWave,
-		const std::vector<size_t>& samplesIndecies )
+		const std::vector<size_t>& samplesIndecies,
+		NNMLPShellWaveCropper::CropOutOfBounds cob )
 {
 	std::shared_ptr<NNBuffer>	pCrop = std::make_shared<NNBuffer>() ;
 	NNBufDim	dimCrop( m_dimCrop.x, m_dimCrop.y, m_dimCrop.z * m_nPackSamples ) ;
@@ -679,8 +681,24 @@ std::shared_ptr<NNBuffer> NNMLPShellWaveCropper::CropWaveData
 		const size_t	zChannels = min( dimCrop.z, dimWave.z ) ;
 		float *			pDstWave = pCrop->GetBufferAt( 0, i ) ;
 		const float *	pSrcWave = pWave->GetBufferAt( xSamples, 0 ) ;
-		for ( size_t j = 0; (j < dimCrop.x) && (xSamples + j < dimWave.x); j ++ )
+		for ( size_t j = 0; j < dimCrop.x; j ++ )
 		{
+			if ( xSamples + j >= dimWave.x )
+			{
+				if ( cob == cropPadZero )
+				{
+					break ;
+				}
+				if ( cob == cropWrap )
+				{
+					pSrcWave = pWave->GetBufferAt( (xSamples + j) % dimWave.x, 0 ) ;
+				}
+				else
+				{
+					assert( cob == cropEdge ) ;
+					pSrcWave = pWave->GetBufferAt( dimWave.x - 1, 0 ) ;
+				}
+			}
 			for ( size_t ch = 0; ch < zChannels; ch ++ )
 			{
 				pDstWave[ch] = pSrcWave[ch] ;
