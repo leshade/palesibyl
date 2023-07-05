@@ -11,8 +11,8 @@ using namespace Palesibyl ;
 
 constexpr const unsigned int	maxBatchSamples = 64 ;
 constexpr const size_t			maxMatrixStrideX = 64 ;
-constexpr const size_t			GradientBlockX = 8 ;
-constexpr const size_t			GradientBlockY = 32 ;
+constexpr const size_t			GradientBlockX = 32 ;
+constexpr const size_t			GradientBlockY = 8 ;
 
 
 // バッチサンプル数計算
