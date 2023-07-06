@@ -30,6 +30,13 @@ bool PalesibylBasicApp::AppShell::MakeOutputCSV( const char * pszFilePath )
 	{
 		return	false ;
 	}
+	std::shared_ptr<NNEvaluationFunction>
+			pEval = MLP().GetEvaluationFunction() ;
+	if ( pEval != nullptr )
+	{
+		*ofs << "\"traning " << pEval->GetDisplayName()
+				<< "\",\"validation " << pEval->GetDisplayName() << "\"," ;
+	}
 	*ofs << "\"traning loss\",\"validation loss\"" ;
 	if ( m_logGradient )
 	{
@@ -90,6 +97,12 @@ void PalesibylBasicApp::AppShell::OnLearningProgress
 		std::unique_ptr<std::ofstream>	ofs = OpenLogFile( false ) ;
 		if ( ofs != nullptr )
 		{
+			std::shared_ptr<NNEvaluationFunction>
+					pEval = MLP().GetEvaluationFunction() ;
+			if ( pEval != nullptr )
+			{
+				*ofs << lpi.evalLearn << "," << lpi.evalValid << "," ;
+			}
 			*ofs << lpi.lossLearn << "," << lpi.lossValid ;
 			if ( m_logGradient )
 			{
@@ -159,7 +172,9 @@ bool PalesibylBasicApp::ParseArgumentAt( int& iArg, int nArgs, char * pszArgs[] 
 		paramLogGradient,
 		paramTrainImageOut,
 		paramValidImageOut,
-		paramLineFeedByMiniBatcj,
+		paramLineFeedByMiniBatch,
+		paramPrintBufferSize,
+		paramPrintCudaBufferSize,
 		paramNoDropout,
 	} ;
 	static const struct
@@ -183,7 +198,9 @@ bool PalesibylBasicApp::ParseArgumentAt( int& iArg, int nArgs, char * pszArgs[] 
 		{ "/lgrd", paramLogGradient },
 		{ "/tio", paramTrainImageOut },
 		{ "/vio", paramValidImageOut },
-		{ "/nlfb", paramLineFeedByMiniBatcj },
+		{ "/nlfb", paramLineFeedByMiniBatch },
+		{ "/pbs", paramPrintBufferSize },
+		{ "/cubs", paramPrintCudaBufferSize },
 		{ "/ndo", paramNoDropout },
 		{ nullptr, paramNull },
 	} ;
@@ -306,8 +323,16 @@ bool PalesibylBasicApp::ParseArgumentAt( int& iArg, int nArgs, char * pszArgs[] 
 		}
 		break ;
 
-	case	paramLineFeedByMiniBatcj:
+	case	paramLineFeedByMiniBatch:
 		m_cfgShell.flagsBehavior &= ~NNMLPShell::behaviorLineFeedByMiniBatch ;
+		break ;
+
+	case	paramPrintBufferSize:
+		m_cfgShell.flagsBehavior |= NNMLPShell::behaviorPrintBufferSize ;
+		break ;
+
+	case	paramPrintCudaBufferSize:
+		m_cfgShell.flagsBehavior |= NNMLPShell::behaviorPrintCudaBufferSize ;
 		break ;
 
 	case	paramNoDropout:
@@ -423,6 +448,8 @@ int PalesibylBasicApp::RunHelp( void )
 	std::cout << "/vio <image-file> : 検証用画像の予測を逐次出力します" << std::endl ;
 	std::cout << "/ndo              : ドロップアウトは行わない" << std::endl ;
 	std::cout << "/nlfb             : ミニバッチ毎に進捗表示を改行しない" << std::endl ;
+	std::cout << "/pbs              : 学習中間バッファのサイズを表示します" << std::endl ;
+	std::cout << "/cubs             : 学習中間 CUDA バッファのサイズを表示します" << std::endl ;
 	std::cout << std::endl ;
 	std::cout << "※学習／予測処理は ESC キーで中断できます" << std::endl ;
 	std::cout << std::endl ;
@@ -442,6 +469,7 @@ int PalesibylBasicApp::RunLearning( void )
 		BuildModel( pIter.get() ) ;
 		m_shell.SaveModel( m_strModelFile.c_str() ) ;
 	}
+	BeforeLearning() ;
 
 	// ログファイル
 	if ( !m_strLearnLogFile.empty() )
@@ -453,7 +481,6 @@ int PalesibylBasicApp::RunLearning( void )
 	}
 
 	// 訓練
-	BeforeLearning() ;
 	m_shell.DoLearning( *pIter, m_param ) ;
 
 	// モデル保存

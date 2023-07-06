@@ -124,6 +124,8 @@ int PalesibylApp::RunHelp( void )
 	std::cout << "/vio <image-file> : 検証用画像の予測を逐次出力します" << std::endl ;
 	std::cout << "/ndo              : ドロップアウトは行わない" << std::endl ;
 	std::cout << "/nlfb             : ミニバッチ毎に進捗表示を改行しない" << std::endl ;
+	std::cout << "/pbs              : 学習中間バッファのサイズを表示します" << std::endl ;
+	std::cout << "/cubs             : 学習中間 CUDA バッファのサイズを表示します" << std::endl ;
 	std::cout << std::endl ;
 	std::cout << "※学習／予測処理は ESC キーで中断できます" << std::endl ;
 	std::cout << std::endl ;
@@ -162,6 +164,7 @@ int PalesibylApp::RunLearning( void )
 		BuildClassifier( pIter.get() ) ;
 		m_classifier.SaveModel( m_strClassModelFile.c_str() ) ;
 	}
+	BeforeLearning() ;
 
 	// ログファイル
 	if ( !m_strLearnLogFile.empty() )
@@ -173,7 +176,6 @@ int PalesibylApp::RunLearning( void )
 	}
 
 	// GAN 訓練
-	BeforeLearning() ;
 	m_shell.DoLearningGAN
 		( *pIter, m_classifier,
 			*(pGanIter->GetClassifierIterator()),
