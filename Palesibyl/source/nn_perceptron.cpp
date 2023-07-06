@@ -760,11 +760,30 @@ void NNPerceptron::PrepareBuffer
 		cudaDevFlags |= NNBuffer::allocateWithCommit ;
 	}
 
-	if ( (m_connection.size() == 0)
-		|| ((m_connection.size() == 1)
+	bool	flagInSrcOutput = false ;
+	if ( m_connection.size() == 0 )
+	{
+		flagInSrcOutput = true ;
+	}
+	else if ( (m_connection.size() == 1)
 			&& (m_connection.at(0).iDelay == 0)
-			&& (m_connection.at(0).iChannel == 0)
-			&& (m_connection.at(0).nChannels == 0)) )
+			&& (m_connection.at(0).iChannel == 0) )
+	{
+		if ( m_connection.at(0).nChannels == 0 )
+		{
+			flagInSrcOutput = true ;
+		}
+		else if ( (m_connection.at(0).iLayer >= 1)
+				&& (iThisLayer >= m_connection.at(0).iLayer) )
+		{
+			Buffer *	pBuf = bufArray.at(iThisLayer - m_connection.at(0).iLayer).get() ;
+			if ( pBuf->bufOutput.GetSize().z == m_connection.at(0).nChannels )
+			{
+				flagInSrcOutput = true ;
+			}
+		}
+	}
+	if ( flagInSrcOutput )
 	{
 		bufThis.inSrc = inputSrcOutput ;
 	}
