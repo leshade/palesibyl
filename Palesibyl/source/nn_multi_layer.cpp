@@ -21,6 +21,8 @@ NNMultiLayerPerceptron::NNMultiLayerPerceptron( void )
 //////////////////////////////////////////////////////////////////////////////
 void NNMultiLayerPerceptron::ClearAll( void )
 {
+	m_evaluation = nullptr ;
+
 	m_flagsMLP = 0 ;
 	m_dimInShape = NNBufDim( 0, 0, 0 ) ;
 	m_dimInUnit = NNBufDim( 0, 0, 0 ) ;
@@ -65,9 +67,38 @@ size_t NNMultiLayerPerceptron::CountOfPrePrediction( void ) const
 	if ( (m_flagsMLP & mlpFlagStream)
 		&& (m_dimInShape.x != 0) && (m_dimInUnit.x != 0) )
 	{
-		return	max( m_dimInShape.x / m_dimInUnit.x, 1 ) ;
+//		size_t	nCount = max( m_dimInShape.x / m_dimInUnit.x, 1 ) ;
+		size_t	nCount = 1 ;
+		for ( size_t i = 0; i < GetLayerCount(); i ++ )
+		{
+			NNPerceptronPtr	pLayer = GetLayerAt(i) ;
+			assert( pLayer != nullptr ) ;
+			for ( auto con : pLayer->GetConnection() )
+			{
+				if ( (con.iLayer <= 0) || (con.iDelay >= 1) )
+				{
+					nCount ++ ;
+					break ;
+				}
+			}
+		}
+		return	nCount ;
 	}
 	return	1 ;
+}
+
+// 評価関数
+//////////////////////////////////////////////////////////////////////////////
+void NNMultiLayerPerceptron::SetEvaluationFunction
+	( std::shared_ptr<NNEvaluationFunction> pEvaluation )
+{
+	m_evaluation = pEvaluation ;
+}
+
+std::shared_ptr<NNEvaluationFunction>
+	NNMultiLayerPerceptron::GetEvaluationFunction( void ) const
+{
+	return	m_evaluation ;
 }
 
 // レイヤー追加
@@ -668,8 +699,10 @@ int NNMultiLayerPerceptron::LayerOffsetFrom
 //////////////////////////////////////////////////////////////////////////////
 void NNMultiLayerPerceptron::Serialize( NNSerializer& ser )
 {
+	// ファイルヘッダ
 	FileHeader	fhdr ;
 	memset( &fhdr, 0, sizeof(fhdr) ) ;
+	fhdr.flagsHeader = hdrFlagChunkedLayer ;
 	fhdr.nLayerCount = (uint32_t) GetLayerCount() ;
 	fhdr.flagsMLP = m_flagsMLP ;
 	fhdr.dimInShape.x = (uint32_t) m_dimInShape.x ;
@@ -683,11 +716,23 @@ void NNMultiLayerPerceptron::Serialize( NNSerializer& ser )
 	ser.Write( &fhdr, sizeof(fhdr) ) ;
 	ser.Ascend() ;
 
+	// 評価関数
+	if ( m_evaluation != nullptr )
+	{
+		ser.Descend( CHHDRID_EVALUATION ) ;
+		ser.WriteString( m_evaluation->GetFunctionName() ) ;
+		m_evaluation->Serialize( ser ) ;
+		ser.Ascend() ;
+	}
+
+	// レイヤー配列
 	for ( size_t i = 0; i < GetLayerCount(); i ++ )
 	{
+		ser.Descend( CHHDRID_LAYER ) ;
 		NNPerceptronPtr	pLayer = GetLayerAt( i ) ;
 		ser.WriteString( pLayer->GetPerceptronType() ) ;
 		pLayer->Serialize( ser ) ;
+		ser.Ascend() ;
 	}
 }
 
@@ -697,6 +742,7 @@ bool NNMultiLayerPerceptron::Deserialize( NNDeserializer & dsr )
 {
 	ClearAll() ;
 
+	// ファイルヘッダ
 	if ( dsr.Descend( CHHDRID_HEADER ) != CHHDRID_HEADER )
 	{
 		return	false ;
@@ -710,19 +756,60 @@ bool NNMultiLayerPerceptron::Deserialize( NNDeserializer & dsr )
 	m_dimInShape = NNBufDim( fhdr.dimInShape.x, fhdr.dimInShape.y, fhdr.dimInShape.z ) ;
 	m_dimInUnit = NNBufDim( fhdr.dimInUnit.x, fhdr.dimInUnit.y, fhdr.dimInUnit.z ) ;
 
-	for ( size_t i = 0; i < fhdr.nLayerCount; i ++ )
+	if ( !(fhdr.flagsHeader & hdrFlagChunkedLayer) )
 	{
-		std::string		strType = dsr.ReadString() ;
-		NNPerceptronPtr	pLayer = NNPerceptron::Make( strType.c_str() ) ;
-		if ( pLayer == nullptr )
+		// レイヤー配列（互換性のため）
+		for ( size_t i = 0; i < fhdr.nLayerCount; i ++ )
 		{
-			return	false ;
+			std::string		strType = dsr.ReadString() ;
+			NNPerceptronPtr	pLayer = NNPerceptron::Make( strType.c_str() ) ;
+			if ( pLayer == nullptr )
+			{
+				return	false ;
+			}
+			if ( !pLayer->Deserialize( dsr ) )
+			{
+				return	false ;
+			}
+			AppendLayer( pLayer ) ;
 		}
-		if ( !pLayer->Deserialize( dsr ) )
+	}
+	else
+	{
+		for ( ; ; )
 		{
-			return	false ;
+			uint32_t	idChunk = dsr.Descend() ;
+			if ( idChunk == 0 )
+			{
+				break ;
+			}
+			if ( idChunk == CHHDRID_EVALUATION )
+			{
+				// 評価関数
+				std::string	strEvaluation = dsr.ReadString() ;
+				m_evaluation = NNEvaluationFunction::Make( strEvaluation.c_str() ) ;
+				if ( m_evaluation != nullptr )
+				{
+					m_evaluation->Deserialize( dsr ) ;
+				}
+			}
+			else if ( idChunk == CHHDRID_LAYER )
+			{
+				// レイヤー
+				std::string		strType = dsr.ReadString() ;
+				NNPerceptronPtr	pLayer = NNPerceptron::Make( strType.c_str() ) ;
+				if ( pLayer == nullptr )
+				{
+					return	false ;
+				}
+				if ( !pLayer->Deserialize( dsr ) )
+				{
+					return	false ;
+				}
+				AppendLayer( pLayer ) ;
+			}
+			dsr.Ascend() ;
 		}
-		AppendLayer( pLayer ) ;
 	}
 	return	true ;
 }

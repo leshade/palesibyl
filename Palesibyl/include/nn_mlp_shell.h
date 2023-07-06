@@ -161,6 +161,8 @@ public:
 		NNBuffer *			pValidation ;
 		double				lossLearn ;
 		double				lossValid ;
+		double				evalLearn ;
+		double				evalValid ;
 		long int			msecLearn ;
 		float				deltaRate ;
 		std::vector<float>	gradNorms ;
@@ -173,6 +175,7 @@ public:
 				iMiniBatch(0), nMiniBatchCount(0), pTraining(nullptr),
 				iValidation(0), nValidationCount(0), pValidation(nullptr),
 				lossLearn(0.0), lossValid(0.0),
+				evalLearn(0.0), evalValid(0.0),
 				msecLearn(0), deltaRate(0.0f), nGradNorm(0) {}
 	} ;
 
@@ -192,6 +195,10 @@ public:
 									bufArraysArray ;	// スレッド毎のバッファ配列
 		NNMultiLayerPerceptron::LossAndGradientArray
 									lagArray ;			// 統合された更新用勾配と損失合計
+
+		std::vector<double>			vEvalArray ;		// スレッド毎の評価値の合計
+		std::vector<size_t>			vEvalSummed ;		// スレッド毎の評価値の合計回数
+
 		std::vector<NNBufDim>		dimSourceArray ;	// 入力データサイズ配列
 		uint32_t					flagsBuf ;			// バッファフラグ (enum NNMultiLayerPerceptron::PrepareBufferFlag)
 
@@ -202,6 +209,9 @@ public:
 		double						lossSummed ;
 		size_t						nLossSummed ;
 		double						lossValidation ;
+		double						evalLearning ;		// 評価値（合計）
+		double						evalSummed ;
+		size_t						nEvalSummed ;
 		float						deltaRate ;			// 学習速度係数
 		float						deltaCurRate ;
 		bool						flagEndOfIter ;		// 訓練データ終端フラグ

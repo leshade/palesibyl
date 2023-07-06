@@ -120,6 +120,8 @@ public:
 
 	// シリアライズ用チャンク
 	constexpr static const uint32_t	CHHDRID_HEADER = NNCHUNKID('M','L','P','H') ;
+	constexpr static const uint32_t	CHHDRID_EVALUATION = NNCHUNKID('E','V','A','L') ;
+	constexpr static const uint32_t	CHHDRID_LAYER = NNCHUNKID('L','A','Y','R') ;
 
 	// サイズ情報
 	struct	LayerDim
@@ -130,7 +132,7 @@ public:
 	// ヘッダ情報
 	struct	FileHeader
 	{
-		uint32_t	flagsHeader ;	// = 0
+		uint32_t	flagsHeader ;	// enum FileHeaderFlag の組み合わせ
 		uint32_t	nLayerCount ;	// レイヤー数
 		uint32_t	flagsMLP ;		// enum MLPFlag の組み合わせ
 		uint32_t	nReserved ;		// = 0
@@ -138,14 +140,21 @@ public:
 		LayerDim	dimInUnit ;
 	} ;
 
-	// フラグ
+	// ヘッダフラグ
+	enum	FileHeaderFlag
+	{
+		hdrFlagChunkedLayer	= 0x0001,
+	} ;
+
+	// MLP フラグ
 	enum	MLPFlag
 	{
-		mlpFlagStream	= 0x0001,	// RNN
+		mlpFlagStream		= 0x0001,	// RNN などの可変長入力
 	} ;
 
 protected:
-	std::vector<NNPerceptronPtr>	m_mlp ;
+	std::vector<NNPerceptronPtr>			m_mlp ;
+	std::shared_ptr<NNEvaluationFunction>	m_evaluation ;
 
 	uint32_t	m_flagsMLP ;		// enum MLPFlag の組み合わせ
 	NNBufDim	m_dimInShape ;		// デフォルト入力サイズ（mlpFlagStream 時）
@@ -167,6 +176,9 @@ public:
 	const NNBufDim& GetInputUnit( void ) const ;
 	// 学習の前に事前予測処理が必要な回数
 	size_t CountOfPrePrediction( void ) const ;
+	// 評価関数
+	void SetEvaluationFunction( std::shared_ptr<NNEvaluationFunction> pEvaluation ) ;
+	std::shared_ptr<NNEvaluationFunction> GetEvaluationFunction( void ) const ;
 
 public:
 	// レイヤー追加

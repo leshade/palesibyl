@@ -14,6 +14,7 @@
 #include "nn_normalization.h"
 #include "nn_sampling_filter.h"
 #include "nn_activation_func.h"
+#include "nn_evaluation_func.h"
 
 namespace	Palesibyl
 {

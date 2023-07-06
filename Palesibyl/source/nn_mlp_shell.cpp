@@ -28,6 +28,7 @@ void NNMLPShell::StaticInitialize( void )
 	NNNormalizationFilter::InitMake() ;
 	NNSamplingFilter::InitMake() ;
 	NNActivationFunction::InitMake() ;
+	NNEvaluationFunction::InitMake() ;
 	NNPerceptron::InitMake() ;
 	NNImageCodec::InitializeLib() ;
 }
@@ -304,7 +305,8 @@ void NNMLPShell::DoPrediction( NNMLPShell::Iterator& iter )
 			const size_t	xLead = min( dimInShape.x, dimSource.x ) ;
 			bufStream.Stream( *pSource, 0, xLead ) ;
 			//
-			for ( size_t i = 0; i < xLead; i += dimInUnit.x )
+			size_t	nPreCount = m_mlp.CountOfPrePrediction() ;
+			for ( size_t i = 0; i < nPreCount; i ++ )
 			{
 				pOutput = m_mlp.Prediction( bufArrays, bufStream, false ) ;
 			}
@@ -415,6 +417,9 @@ void NNMLPShell::PrepareLearning
 	}
 	m_mlp.PrepareLossAndGradientArray( context.lagArray ) ;
 
+	context.vEvalArray.resize( context.nBufCount ) ;
+	context.vEvalSummed.resize( context.nBufCount ) ;
+
 	if ( context.nBufCount >= 2 )
 	{
 		context.ploop.BeginThreads( context.nBufCount ) ;
@@ -502,6 +507,7 @@ void NNMLPShell::DoLearningEpoch
 		lpi.iInBatch ++ ;
 		lpi.iSubLoop = param.nSubLoopCount ;
 		lpi.lossLearn = context.lossLearning ;
+		lpi.evalLearn = context.evalLearning ;
 		OnLearningProgress( learningEndSubLoop, lpi ) ;
 
 		if ( context.flagEndOfIter )
@@ -536,6 +542,9 @@ void NNMLPShell::OnBeginEpoch
 	context.lossLearning = 0.0 ;
 	context.lossSummed = 0.0 ;
 	context.nLossSummed = 0 ;
+	context.evalLearning = 0.0 ;
+	context.evalSummed = 0.0 ;
+	context.nEvalSummed = 0 ;
 	context.flagEndOfIter = false ;
 
 	lpi.gradNorms.resize( m_mlp.GetLayerCount() ) ;
@@ -638,6 +647,9 @@ void NNMLPShell::PreapreForMiniBatch
 	{
 		m_mlp.PrepareForMiniBatch
 			( *(context.bufArraysArray.at(i)), flags, rndSeed ) ;
+
+		context.vEvalArray.at(i) = 0.0 ;
+		context.vEvalSummed.at(i) = 0 ;
 	}
 }
 
@@ -658,6 +670,19 @@ void NNMLPShell::OnEndMiniBatch( NNMLPShell::LearningContext& context )
 	context.lossSummed += context.lossCurLoop ;
 	context.nLossSummed ++ ;
 	context.lossLearning = context.lossSummed / (double) context.nLossSummed ;
+
+	assert( context.vEvalArray.size() == context.nBufCount ) ;
+	assert( context.vEvalSummed.size() == context.nBufCount ) ;
+	for ( size_t i = 0; i < context.nBufCount; i ++ )
+	{
+		context.evalSummed += context.vEvalArray.at(i) ;
+		context.nEvalSummed += context.vEvalSummed.at(i) ;
+	}
+	if ( context.nEvalSummed > 0 )
+	{
+		context.evalLearning =
+			context.evalSummed / (double) context.nEvalSummed ;
+	}
 }
 
 // １回学習
@@ -668,6 +693,9 @@ void NNMLPShell::LearnOnce
 		NNMultiLayerPerceptron * pForwardMLP,
 		NNMLPShell::LearningContext * pForwardContext )
 {
+	std::shared_ptr<NNEvaluationFunction>
+			pEvaluation = m_mlp.GetEvaluationFunction() ;
+
 	lpi.msecLearn = 0 ;
 	lpi.deltaRate = context.deltaCurRate ;
 
@@ -736,9 +764,22 @@ void NNMLPShell::LearnOnce
 		lpi.lossLearn = m_mlp.Learning( bufArrays, *pTeaching, *pSource,
 										pForwardMLP, pForwardBufArrays ) ;
 		const long	msecLearn = tm.MeasureMilliSec() ;
+
+		// 評価値計算
+		double	evalLearn = 0.0 ;
+		if ( pEvaluation != nullptr )
+		{
+			evalLearn = pEvaluation->Evaluate
+							( bufArrays.buffers.back()->bufOutput, *pTeaching ) ;
+			context.vEvalArray.at(iThread) = evalLearn ;
+			context.vEvalSummed.at(iThread) += 1 ;
+		}
+
+		// 進捗
 		{
 			std::lock_guard<std::mutex>	lock(m_mutex) ;
 			lpi.iMiniBatch = iMiniBatch ;
+			lpi.evalLearn = evalLearn ;
 			lpi.msecLearn = msecLearn ;
 			lpi.pTraining = &(bufArrays.buffers.back()->bufOutput) ;
 			OnLearningProgress( learningOneData, lpi ) ;
@@ -781,9 +822,12 @@ void NNMLPShell::GradientReflection
 		const NNPerceptron::LossAndGradient&	grad = context.lagArray.at(i) ;
 		if ( grad.nGradient > 0 )
 		{
+			NNPerceptronPtr	pLayer = m_mlp.GetLayerAt(i) ;
+			const float	gradFactor = (pLayer != nullptr)
+									? pLayer->GetGradientFactor() : 1.0f ;
 			const float	norm = (grad.matGradient
-								/ (float) grad.nGradient).FrobeniusNorm() ;
-			lpi.gradNorms.at(i) += norm ;
+									/ (float) grad.nGradient).FrobeniusNorm() ;
+			lpi.gradNorms.at(i) += norm * gradFactor ;
 		}
 	}
 	lpi.nGradNorm ++ ;
@@ -802,6 +846,9 @@ bool NNMLPShell::ValidateLearning
 	( NNMLPShell::LearningContext& context,
 		NNMLPShell::LearningProgressInfo& lpi, NNMLPShell::Iterator& iter )
 {
+	std::shared_ptr<NNEvaluationFunction>
+				pEvaluation = m_mlp.GetEvaluationFunction() ;
+
 	NNMultiLayerPerceptron::BufferArrays&
 				bufArrays0 = *(context.bufArraysArray.at(0)) ;
 	NNBufDim&	dimSource0 = context.dimSourceArray.at(0) ;
@@ -811,6 +858,7 @@ bool NNMLPShell::ValidateLearning
 	m_mlp.PrepareForMiniBatch( bufArrays0, 0, random() ) ;
 
 	bool	flagValidation = false ;
+	double	evalValidation = 0.0 ;
 	lpi.iValidation = 0 ;
 	while ( !context.flagCanceled )
 	{
@@ -844,6 +892,15 @@ bool NNMLPShell::ValidateLearning
 		m_mlp.CalcLoss( bufArrays0, *pTeaching ) ;
 		lpi.lossValid = m_mlp.GetAverageLoss( bufArrays0 ) ;
 
+		// 評価値計算
+		if ( pEvaluation != nullptr )
+		{
+			evalValidation +=
+				pEvaluation->Evaluate( *lpi.pValidation, *pTeaching ) ;
+			lpi.evalValid = evalValidation / (double) (lpi.iValidation + 1) ;
+		}
+
+		// 進捗
 		OnLearningProgress( learningValidation, lpi ) ;
 		lpi.iValidation ++ ;
 		flagValidation = true ;
