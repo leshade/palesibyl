@@ -70,6 +70,7 @@ public:
 	// バッファサイズ
 	const NNBufDim& GetSize( void ) const ;
 	unsigned long long GetBufferBytes( void ) const ;
+	unsigned long long GetCudaBufferBytes( void ) const ;
 	// 画像データから変換
 	void CopyFromImage
 		( const uint8_t * pubImage,

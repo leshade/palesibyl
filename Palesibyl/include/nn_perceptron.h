@@ -83,23 +83,15 @@ public:
 		NNNormalizationFilter::WorkBuf
 						normWorkBuf ;		// 正規化用バッファ
 
-		size_t GetBufferBytes( void ) const
-		{
-			return	bufMatrix.GetBufferBytes()
-					+ bufDropoutMask.GetBufferBytes()
-					+ bufInput.GetBufferBytes()
-					+ bufInAct.GetBufferBytes()
-					+ bufOutput.GetBufferBytes()
-					+ bufDelay.GetBufferBytes()
-					+ bufPrevDelta.GetBufferBytes()
-					+ bufPrevDelta2.GetBufferBytes()
-					+ bufInDelta.GetBufferBytes()
-					+ bufOutDelta.GetBufferBytes()
-					+ bufGradient.GetBufferBytes()
-					+ normWorkBuf.GetBufferBytes() ;
-		}
+		size_t GetBufferBytes( void ) const ;
+		size_t GetCudaBufferBytes( void ) const ;
 	} ;
-	class	BufferArray	: public std::vector< std::shared_ptr<Buffer> > { } ;
+	class	BufferArray	: public std::vector< std::shared_ptr<Buffer> >
+	{
+	public:
+		unsigned long long GetTotalBufferBytes( void ) const ;
+		unsigned long long GetTotalCudaBufferBytes( void ) const ;
+	} ;
 
 	// 入力バッファ情報
 	struct	InputBuffer

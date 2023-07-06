@@ -4,6 +4,65 @@
 using namespace Palesibyl ;
 
 
+
+//////////////////////////////////////////////////////////////////////////////
+// 処理中間バッファ
+//////////////////////////////////////////////////////////////////////////////
+
+size_t NNPerceptron::Buffer::GetBufferBytes( void ) const
+{
+	return	bufMatrix.GetBufferBytes()
+			+ bufDropoutMask.GetBufferBytes()
+			+ bufInput.GetBufferBytes()
+			+ bufInAct.GetBufferBytes()
+			+ bufOutput.GetBufferBytes()
+			+ bufDelay.GetBufferBytes()
+			+ bufPrevDelta.GetBufferBytes()
+			+ bufPrevDelta2.GetBufferBytes()
+			+ bufInDelta.GetBufferBytes()
+			+ bufOutDelta.GetBufferBytes()
+			+ bufGradient.GetBufferBytes()
+			+ normWorkBuf.GetBufferBytes() ;
+}
+
+size_t NNPerceptron::Buffer::GetCudaBufferBytes( void ) const
+{
+	return	bufMatrix.GetCudaBufferBytes()
+			+ bufDropoutMask.GetCudaBufferBytes()
+			+ bufInput.GetCudaBufferBytes()
+			+ bufInAct.GetCudaBufferBytes()
+			+ bufOutput.GetCudaBufferBytes()
+			+ bufDelay.GetCudaBufferBytes()
+			+ bufPrevDelta.GetCudaBufferBytes()
+			+ bufPrevDelta2.GetCudaBufferBytes()
+			+ bufInDelta.GetCudaBufferBytes()
+			+ bufOutDelta.GetCudaBufferBytes()
+			+ bufGradient.GetCudaBufferBytes()
+			+ normWorkBuf.GetCudaBufferBytes() ;
+}
+
+unsigned long long NNPerceptron::BufferArray::GetTotalBufferBytes( void ) const
+{
+	unsigned long long	nTotalBytes = 0 ;
+	for ( size_t i = 0; i < size(); i ++ )
+	{
+		nTotalBytes += at(i)->GetBufferBytes() ;
+	}
+	return	nTotalBytes ;
+}
+
+unsigned long long NNPerceptron::BufferArray::GetTotalCudaBufferBytes( void ) const
+{
+	unsigned long long	nTotalBytes = 0 ;
+	for ( size_t i = 0; i < size(); i ++ )
+	{
+		nTotalBytes += at(i)->GetCudaBufferBytes() ;
+	}
+	return	nTotalBytes ;
+}
+
+
+
 //////////////////////////////////////////////////////////////////////////////
 // パーセプトロン
 //////////////////////////////////////////////////////////////////////////////

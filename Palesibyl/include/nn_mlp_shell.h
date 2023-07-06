@@ -106,7 +106,9 @@ public:
 	{
 		behaviorPrintLearningFile	= 0x0001,	// 学習中のファイル名を表示しない
 		behaviorLineFeedByMiniBatch	= 0x0002,	// 学習中のミニバッチ毎に表示行を送る
-		behaviorNoDropout			= 0x0004,	// 学習時のドロップアウトは行わない
+		behaviorPrintBufferSize		= 0x0004,	// 学習中のバッファサイズを表示する
+		behaviorPrintCudaBufferSize	= 0x0008,	// 学習中のCUDAバッファサイズを表示する
+		behaviorNoDropout			= 0x0100,	// 学習時のドロップアウトは行わない
 	} ;
 	struct	ShellConfig
 	{
@@ -167,6 +169,8 @@ public:
 		float				deltaRate ;
 		std::vector<float>	gradNorms ;
 		size_t				nGradNorm ;
+		unsigned long long	nBufferBytes ;
+		unsigned long long	nCudaBufferBytes ;
 
 		LearningProgressInfo( void )
 			: flags(0), iGANLoop(0), nGANCount(0),
@@ -176,7 +180,8 @@ public:
 				iValidation(0), nValidationCount(0), pValidation(nullptr),
 				lossLearn(0.0), lossValid(0.0),
 				evalLearn(0.0), evalValid(0.0),
-				msecLearn(0), deltaRate(0.0f), nGradNorm(0) {}
+				msecLearn(0), deltaRate(0.0f), nGradNorm(0),
+				nBufferBytes(0), nCudaBufferBytes(0) {}
 	} ;
 
 	// 学習コンテキスト

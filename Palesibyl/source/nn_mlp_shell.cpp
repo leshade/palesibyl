@@ -782,6 +782,8 @@ void NNMLPShell::LearnOnce
 			lpi.evalLearn = evalLearn ;
 			lpi.msecLearn = msecLearn ;
 			lpi.pTraining = &(bufArrays.buffers.back()->bufOutput) ;
+			lpi.nBufferBytes = bufArrays.buffers.GetTotalBufferBytes() ;
+			lpi.nCudaBufferBytes = bufArrays.buffers.GetTotalCudaBufferBytes() ;
 			OnLearningProgress( learningOneData, lpi ) ;
 			//
 			if ( IsCancel() )
@@ -1026,7 +1028,7 @@ void NNMLPShell::OnLearningProgress
 		if ( lpi.flags & (learningGAN | learningGANClassifier) )
 		{
 			Print( "\x1b[s"
-					"loop: %d/%d, epoch: %d/%d, batch: %d/%d, rep: %d/%d (%d/%d), loss=%f  [%ld ms]  (delta=%f)\x1b[0K",
+					"loop: %d/%d, epoch: %d/%d, batch: %d/%d, rep: %d/%d (%d/%d), loss=%f  [%ld ms]",
 					(int) lpi.iGANLoop+1, (int) lpi.nGANCount,
 					(int) lpi.iLoopEpoch+1, (int) lpi.nEpochCount,
 					(int) lpi.iInBatch+1, (int) lpi.nCountInBatch,
@@ -1037,12 +1039,24 @@ void NNMLPShell::OnLearningProgress
 		else
 		{
 			Print( "\x1b[s"
-					"epoch: %d/%d, batch: %d/%d, rep: %d/%d (%d/%d), loss=%f  [%ld ms]  (delta=%f)\x1b[0K",
+					"epoch: %d/%d, batch: %d/%d, rep: %d/%d (%d/%d), loss=%f  [%ld ms]",
 					(int) lpi.iLoopEpoch+1, (int) lpi.nEpochCount,
 					(int) lpi.iInBatch+1, (int) lpi.nCountInBatch,
 					(int) lpi.iSubLoop+1, (int) lpi.nSubLoopCount,
 					(int) lpi.iMiniBatch+1, (int) lpi.nMiniBatchCount,
 					lpi.lossLearn, lpi.msecLearn, lpi.deltaRate ) ;
+		}
+		if ( m_config.flagsBehavior & behaviorPrintBufferSize )
+		{
+			Print( "  (buf=%dMB)\x1b[0K", (int) (lpi.nBufferBytes / (1024*1024)) ) ;
+		}
+		else if ( m_config.flagsBehavior & behaviorPrintCudaBufferSize )
+		{
+			Print( "  (CUDA=%dMB)\x1b[0K", (int) (lpi.nCudaBufferBytes / (1024*1024)) ) ;
+		}
+		else
+		{
+			Print( "  (delta=%f)\x1b[0K", lpi.deltaRate ) ;
 		}
 		break ;
 

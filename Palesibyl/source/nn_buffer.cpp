@@ -207,6 +207,12 @@ unsigned long long NNBuffer::GetBufferBytes( void ) const
 	return	(unsigned long long) m_dimSize.n * m_dimSize.z * sizeof(float) ;
 }
 
+unsigned long long NNBuffer::GetCudaBufferBytes( void ) const
+{
+	return	(m_cudaMemory != nullptr)
+				? m_cudaMemory->GetLength() * sizeof(float) : 0 ;
+}
+
 // 画像データから変換
 //////////////////////////////////////////////////////////////////////////////
 void NNBuffer::CopyFromImage

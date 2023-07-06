@@ -7,6 +7,32 @@ using namespace Palesibyl ;
 
 
 //////////////////////////////////////////////////////////////////////////////
+// 正規化作業バッファ
+//////////////////////////////////////////////////////////////////////////////
+
+size_t NNNormalizationFilter::WorkBuf::GetBufferBytes( void ) const
+{
+	return	bufParameter.GetBufferBytes()
+			+ bufVariance.GetBufferBytes()
+			+ bufAggregation[0].GetBufferBytes()
+			+ bufAggregation[1].GetBufferBytes()
+			+ bufAggregation[2].GetBufferBytes()
+			+ bufGradient.GetBufferBytes() ;
+}
+
+size_t NNNormalizationFilter::WorkBuf::GetCudaBufferBytes( void ) const
+{
+	return	bufParameter.GetCudaBufferBytes()
+			+ bufVariance.GetCudaBufferBytes()
+			+ bufAggregation[0].GetCudaBufferBytes()
+			+ bufAggregation[1].GetCudaBufferBytes()
+			+ bufAggregation[2].GetCudaBufferBytes()
+			+ bufGradient.GetCudaBufferBytes() ;
+}
+
+
+
+//////////////////////////////////////////////////////////////////////////////
 // 正規化
 //////////////////////////////////////////////////////////////////////////////
 

@@ -70,15 +70,8 @@ public:
 		std::vector<Aggregation>		vecAggregation ;
 		std::vector<Gradient>			vecGradients ;
 
-		size_t GetBufferBytes( void ) const
-		{
-			return	bufParameter.GetBufferBytes()
-					+ bufVariance.GetBufferBytes()
-					+ bufAggregation[0].GetBufferBytes()
-					+ bufAggregation[1].GetBufferBytes()
-					+ bufAggregation[2].GetBufferBytes()
-					+ bufGradient.GetBufferBytes() ;
-		}
+		size_t GetBufferBytes( void ) const ;
+		size_t GetCudaBufferBytes( void ) const ;
 	} ;
 
 	struct	Hyperparameter
