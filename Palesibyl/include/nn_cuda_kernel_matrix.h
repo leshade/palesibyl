@@ -534,14 +534,26 @@ template <class S> void cuda_CalcMatrixGradient
 
 	assert( cudaSharedMemorySize/4/sizeof(float) >= min((int)yMatrix,maxBufSize) * zThreads ) ;
 	assert( cudaSharedMemorySize/2/sizeof(float) >= min((int)yMatrix,maxBufSize) * xThreads * zThreads ) ;
-	assert( xGradientBlockSize == GradientBlockX ) ;
-	assert( yGradientBlockSize == GradientBlockY ) ;
 
-	nnkernel_CalcMatrixGradient<S,GradientBlockX,GradientBlockY,maxBufSize>
-		<<<grid, threads, 0, stream>>>
-			( pGradient, dimGradient,
-				(int) xMatrix, (int) yMatrix, iMatrixBias,
-				pDelta, dimDelta, pSrc, dimSrc, sp, xThreads, yThreads, zThreads ) ;
+	if ( (xGradientBlockSize == GradientBlockX)
+		&& (yGradientBlockSize == GradientBlockY) )
+	{
+		nnkernel_CalcMatrixGradient<S,GradientBlockX,GradientBlockY,maxBufSize>
+			<<<grid, threads, 0, stream>>>
+				( pGradient, dimGradient,
+					(int) xMatrix, (int) yMatrix, iMatrixBias,
+					pDelta, dimDelta, pSrc, dimSrc, sp, xThreads, yThreads, zThreads ) ;
+	}
+	else
+	{
+		assert( xGradientBlockSize == GradientBlockX*GradientBlockY ) ;
+		assert( yGradientBlockSize == 1 ) ;
+		nnkernel_CalcMatrixGradient<S,GradientBlockX*GradientBlockY,1,maxBufSize>
+			<<<grid, threads, 0, stream>>>
+				( pGradient, dimGradient,
+					(int) xMatrix, (int) yMatrix, iMatrixBias,
+					pDelta, dimDelta, pSrc, dimSrc, sp, xThreads, yThreads, zThreads ) ;
+	}
 }
 
 #endif

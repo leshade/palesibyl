@@ -155,12 +155,28 @@ size_t Palesibyl::nncuda_IsAcceptableMatrixSize
 
 size_t Palesibyl::nncuda_CalcMatrixGradientBlockSizeX( size_t x, size_t y )
 {
-	return	GradientBlockX ;
+	if ( (y >= GradientBlockY) || (x < GradientBlockX*GradientBlockY) )
+	{
+		return	GradientBlockX ;
+	}
+	else
+	{
+		assert( (y < GradientBlockY) && (x >= GradientBlockX*GradientBlockY) ) ;
+		return	GradientBlockX*GradientBlockY ;
+	}
 }
 
 size_t Palesibyl::nncuda_CalcMatrixGradientBlockSizeY( size_t x, size_t y )
 {
-	return	GradientBlockY ;
+	if ( (y >= GradientBlockY) || (x < GradientBlockX*GradientBlockY) )
+	{
+		return	GradientBlockY ;
+	}
+	else
+	{
+		assert( (y < GradientBlockY) && (x >= GradientBlockX*GradientBlockY) ) ;
+		return	1 ;
+	}
 }
 
 size_t Palesibyl::nncuda_CalcMatrixGradientBlockX( size_t x, size_t y )
