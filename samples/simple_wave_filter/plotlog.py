@@ -62,7 +62,7 @@ def PlotLogCSV():
 		plt.plot( x, tl, color="blue", label=data.columns[0] )
 
 		plt.xlabel( "epoch" )
-		plt.ylabel( "loss" )
+		plt.ylabel( "evaluation" )
 		plt.legend(loc = 'upper right') 
 		plt.grid()
 
