@@ -771,7 +771,7 @@ void NNMLPShell::LearnOnce
 		{
 			evalLearn = pEvaluation->Evaluate
 							( bufArrays.buffers.back()->bufOutput, *pTeaching ) ;
-			context.vEvalArray.at(iThread) = evalLearn ;
+			context.vEvalArray.at(iThread) += evalLearn ;
 			context.vEvalSummed.at(iThread) += 1 ;
 		}
 

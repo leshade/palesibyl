@@ -1081,9 +1081,13 @@ bool NNMultiLayerPerceptron::VerifyDataShape
 		}
 		else if ( pSampler->MustBeInputLayer() )
 		{
-			verfResult.verfError = mustBeFirstInputLayer ;
-			verfResult.iLayer = iLayer ;
-			return	false ;
+			if ( (pLayer->GetConnection().size() != 1)
+				|| (pLayer->GetConnection().at(0).iLayer <= (int) iLayer) )
+			{
+				verfResult.verfError = mustBeFirstInputLayer ;
+				verfResult.iLayer = iLayer ;
+				return	false ;
+			}
 		}
 		const size_t	xMatrix = pLayer->GetMatrix().GetColumnCount() - pLayer->GetBias() ;
 		if ( (xMatrix != pSampler->ConvChannelCount( dimInput.z, xMatrix ) ) )
@@ -1168,7 +1172,7 @@ bool NNMultiLayerPerceptron::VerifyDataShape
 								pBuf = bufArrays.buffers.at(iLayer) ;
 			NNBufDim	dimInAct = pBuf->bufInAct.GetSize() ;
 			NNBufDim	dimOutput = pBuf->bufOutput.GetSize() ;
-			nUseCudaMemory += pBuf->GetBufferBytes() ;
+			nUseCudaMemory += pBuf->EstimateCudaBufferBytes() ;
 			if ( nUseCudaMemory >= g_cudaDevProp.totalGlobalMem )
 			{
 				// 即復帰せず、他のエラーがある場合にはそちらを返す

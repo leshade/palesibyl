@@ -85,6 +85,7 @@ public:
 
 		size_t GetBufferBytes( void ) const ;
 		size_t GetCudaBufferBytes( void ) const ;
+		size_t EstimateCudaBufferBytes( void ) const ;
 	} ;
 	class	BufferArray	: public std::vector< std::shared_ptr<Buffer> >
 	{

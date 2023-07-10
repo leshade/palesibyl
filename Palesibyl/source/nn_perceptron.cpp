@@ -41,6 +41,20 @@ size_t NNPerceptron::Buffer::GetCudaBufferBytes( void ) const
 			+ normWorkBuf.GetCudaBufferBytes() ;
 }
 
+size_t NNPerceptron::Buffer::EstimateCudaBufferBytes( void ) const
+{
+	size_t	nBytes = GetBufferBytes() ;
+	if ( !reqDelay )
+	{
+		nBytes -= bufDelay.GetBufferBytes() ;
+	}
+	if ( !reqDelta2 )
+	{
+		nBytes -= bufPrevDelta.GetBufferBytes() ;
+	}
+	return	nBytes ;
+}
+
 unsigned long long NNPerceptron::BufferArray::GetTotalBufferBytes( void ) const
 {
 	unsigned long long	nTotalBytes = 0 ;
