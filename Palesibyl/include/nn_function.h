@@ -232,7 +232,7 @@ public:
 		double	loss = 0.0 ;
 		for ( size_t z = 0; z < nDepthwise; z ++ )
 		{
-			const size_t	iOneHot = (size_t) floor( pTeaching[z] ) ;
+			const size_t	iOneHot = ((size_t) floor( pTeaching[z] )) * nDepthwise + z ;
 			assert( (iOneHot % nDepthwise) == z ) ;
 			assert( iOneHot < nCount ) ;
 			float	ySum = 0.0f ;
@@ -257,7 +257,7 @@ public:
 	{
 		for ( size_t z = 0; z < nDepthwise; z ++ )
 		{
-			const size_t	iOneHot = (size_t) floor( pTeaching[z] ) ;
+			const size_t	iOneHot = ((size_t) floor( pTeaching[z] )) * nDepthwise + z ;
 			//const size_t	iMax = (size_t) floor( pOutput[z * argmaxChannelCount + argmaxProbability] ) ;
 			const float		eSum = max( pOutput[z * argmaxChannelCount + argmaxSumExp], 0.00001f ) ;
 			assert( iOneHot < nCount ) ;
@@ -280,7 +280,7 @@ public:
 			size_t nDepthwise, const LossParam& lp )
 	{
 		const size_t	zOut = iDstLossDelta % nDepthwise ;
-		const size_t	iOneHot = (size_t) floor( pTeaching[zOut] ) ;
+		const size_t	iOneHot = ((size_t) floor( pTeaching[zOut] )) * nDepthwise + zOut ;
 		const float		eSum = max( pOutput[zOut * argmaxChannelCount + argmaxSumExp], 0.00001f ) ;
 		float	delta = exp_sd( pInAct[iDstLossDelta] ) / eSum ;
 		if ( iDstLossDelta == iOneHot )
@@ -362,7 +362,7 @@ public:
 			{
 				pLossDelta[i] = 0.0f ;
 			}
-			const size_t	iOneHot = (size_t) floor( pTeaching[z] ) ;
+			const size_t	iOneHot = ((size_t) floor( pTeaching[z] )) * nDepthwise + z ;
 			const float		eSum = max( pOutput[z * argmaxChannelCount + argmaxSumExp], 0.00001f ) ;
 			assert( iOneHot < nCount ) ;
 			assert( (iOneHot % nDepthwise) == z ) ;
@@ -370,7 +370,8 @@ public:
 			{
 				pLossDelta[iOneHot] = exp_s( pInAct[iOneHot] ) / eSum - 1.0f ;
 			}
-			const size_t	iMax = (size_t) floor( pOutput[z * argmaxChannelCount + argmaxIndex] ) ;
+			const size_t	iMax = ((size_t) floor( pOutput[z * argmaxChannelCount + argmaxIndex] ))
+										* nDepthwise + z ;
 			if ( (iMax != iOneHot) && (iMax < nCount) )
 			{
 				pLossDelta[iMax] = exp_s( pInAct[iMax] ) / eSum ;
@@ -384,8 +385,9 @@ public:
 			size_t nDepthwise, const LossParam& lp )
 	{
 		const size_t	zOut = iDstLossDelta % nDepthwise ;
-		const size_t	iOneHot = (size_t) floor( pTeaching[zOut] ) ;
-		const size_t	iMax = (size_t) floor( pOutput[zOut * argmaxChannelCount + argmaxIndex] ) ;
+		const size_t	iOneHot = ((size_t) floor( pTeaching[zOut] )) * nDepthwise + zOut ;
+		const size_t	iMax = ((size_t) floor( pOutput[zOut * argmaxChannelCount + argmaxIndex] ))
+									* nDepthwise + zOut ;
 		const float		eSum = max( pOutput[zOut * argmaxChannelCount + argmaxSumExp], 0.00001f ) ;
 		if ( iDstLossDelta == iOneHot )
 		{
@@ -812,11 +814,11 @@ public:
 	static inline __NN_CUDA_DEV__ float kernelActivation
 		( size_t iDst, const float * pSrc, size_t nSrcCount, size_t nDepthwise )
 	{
-		size_t	iSrc = iDst / argmaxChannelCount ;
-		size_t	type = iDst - iSrc * argmaxChannelCount ;
-		size_t	iMax = 0 ;
-		float	eMax = 0.0f ;
-		float	eSum = 0.0f ;
+		const size_t	iSrc = iDst / argmaxChannelCount ;
+		const size_t	type = iDst - iSrc * argmaxChannelCount ;
+		size_t			iMax = 0 ;
+		float			eMax = 0.0f ;
+		float			eSum = 0.0f ;
 		for ( size_t i = iSrc; i < nSrcCount; i += nDepthwise )
 		{
 			float	src = pSrc[i] ;
@@ -830,7 +832,7 @@ public:
 		switch ( type )
 		{
 		case	argmaxIndex:
-			return	(float) iMax ;
+			return	(float) ((iMax - iSrc) / nDepthwise) ;
 		case	argmaxProbability:
 			return	eMax / max( eSum, 0.00001f ) ;
 		case	argmaxSumExp:
@@ -857,7 +859,7 @@ public:
 				}
 				eSum += e ;
 			}
-			pDst[zx3 + argmaxIndex]       = (float) iMax ;
+			pDst[zx3 + argmaxIndex]       = (float) ((iMax - z) / nDepthwise) ;
 			pDst[zx3 + argmaxProbability] = eMax / max( eSum, 0.00001f ) ;
 			pDst[zx3 + argmaxSumExp]      = eSum ;
 		}
@@ -874,8 +876,10 @@ public:
 		( const float * pSrc, const float * pActOut,
 				size_t iSrc, size_t nSrcCount, size_t nDepthwise )
 	{
-		size_t	iDst = iSrc % nDepthwise ;
-		if ( floor(pActOut[iDst*argmaxChannelCount+argmaxIndex]) != (float) iSrc )
+		const size_t	iDst = iSrc % nDepthwise ;
+		const size_t	iMax = ((size_t) floor(pActOut[iDst * argmaxChannelCount + argmaxIndex]))
+								* nDepthwise + iDst ;
+		if ( iMax != iSrc )
 		{
 			return	0.0f ;	// Positive Sampling (逆伝播出来ないので)
 		}
@@ -894,7 +898,8 @@ public:
 	{
 		for ( size_t z = 0; z < nDepthwise; z ++ )
 		{
-			const size_t	iMax = (size_t) floor(pActOut[z * argmaxChannelCount]) ;
+			const size_t	iMax = ((size_t) floor(pActOut[z * argmaxChannelCount + argmaxIndex]))
+									* nDepthwise + z ;
 			const float		eSum = max( pActOut[z * argmaxChannelCount + argmaxSumExp], 0.00001f ) ;
 			for ( size_t i = z; i < nSrcCount; i += nDepthwise )
 			{
