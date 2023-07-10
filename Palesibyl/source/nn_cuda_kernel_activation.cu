@@ -9,68 +9,76 @@
 
 void Palesibyl::nncuda_Activation_Linear
 	( float * pDst, NNBufDim dimDst,
-		const float * pSrc, NNBufDim dimSrc, int nDepthwise, cudaStream_t stream )
+		const float * pSrc, NNBufDim dimSrc,
+		size_t xLeftBounds, int nDepthwise, cudaStream_t stream )
 {
 	nncuda_Activation<NNAFunctionLinear>
-		( pDst, dimDst, pSrc, dimSrc, nDepthwise, stream ) ;
+		( pDst, dimDst, pSrc, dimSrc, xLeftBounds, nDepthwise, stream ) ;
 }
 
 void Palesibyl::nncuda_Activation_ReLU
 	( float * pDst, NNBufDim dimDst,
-		const float * pSrc, NNBufDim dimSrc, int nDepthwise, cudaStream_t stream )
+		const float * pSrc, NNBufDim dimSrc,
+		size_t xLeftBounds, int nDepthwise, cudaStream_t stream )
 {
 	nncuda_Activation<NNAFunctionReLU>
-		( pDst, dimDst, pSrc, dimSrc, nDepthwise, stream ) ;
+		( pDst, dimDst, pSrc, dimSrc, xLeftBounds, nDepthwise, stream ) ;
 }
 
 void Palesibyl::nncuda_Activation_Sigmoid
 	( float * pDst, NNBufDim dimDst,
-		const float * pSrc, NNBufDim dimSrc, int nDepthwise, cudaStream_t stream )
+		const float * pSrc, NNBufDim dimSrc,
+		size_t xLeftBounds, int nDepthwise, cudaStream_t stream )
 {
 	nncuda_Activation<NNAFunctionSigmoid>
-		( pDst, dimDst, pSrc, dimSrc, nDepthwise, stream ) ;
+		( pDst, dimDst, pSrc, dimSrc, xLeftBounds, nDepthwise, stream ) ;
 }
 
 void Palesibyl::nncuda_Activation_Tanh
 	( float * pDst, NNBufDim dimDst,
-		const float * pSrc, NNBufDim dimSrc, int nDepthwise, cudaStream_t stream )
+		const float * pSrc, NNBufDim dimSrc,
+		size_t xLeftBounds, int nDepthwise, cudaStream_t stream )
 {
 	nncuda_Activation<NNAFunctionTanh>
-		( pDst, dimDst, pSrc, dimSrc, nDepthwise, stream ) ;
+		( pDst, dimDst, pSrc, dimSrc, xLeftBounds, nDepthwise, stream ) ;
 }
 
 void Palesibyl::nncuda_Activation_Softmax
 	( float * pDst, NNBufDim dimDst,
-		const float * pSrc, NNBufDim dimSrc, int nDepthwise, cudaStream_t stream )
+		const float * pSrc, NNBufDim dimSrc,
+		size_t xLeftBounds, int nDepthwise, cudaStream_t stream )
 {
 	nncuda_Activation<NNAFunctionSoftmax>
-		( pDst, dimDst, pSrc, dimSrc, nDepthwise, stream ) ;
+		( pDst, dimDst, pSrc, dimSrc, xLeftBounds, nDepthwise, stream ) ;
 }
 
 /*
 void Palesibyl::nncuda_Activation_Argmax
 	( float * pDst, NNBufDim dimDst,
-		const float * pSrc, NNBufDim dimSrc, int nDepthwise, cudaStream_t stream )
+		const float * pSrc, NNBufDim dimSrc,
+		size_t xLeftBounds, int nDepthwise, cudaStream_t stream )
 {
 	nncuda_Activation<NNAFunctionArgmax>
-		( pDst, dimDst, pSrc, dimSrc, nDepthwise, stream ) ;
+		( pDst, dimDst, pSrc, dimSrc, xLeftBounds, nDepthwise, stream ) ;
 }
 */
 
 void Palesibyl::nncuda_Activation_MaxPool
 	( float * pDst, NNBufDim dimDst,
-		const float * pSrc, NNBufDim dimSrc, int nDepthwise, cudaStream_t stream )
+		const float * pSrc, NNBufDim dimSrc,
+		size_t xLeftBounds, int nDepthwise, cudaStream_t stream )
 {
 	nncuda_Activation<NNAFunctionMaxPool>
-		( pDst, dimDst, pSrc, dimSrc, nDepthwise, stream ) ;
+		( pDst, dimDst, pSrc, dimSrc, xLeftBounds, nDepthwise, stream ) ;
 }
 
 void Palesibyl::nncuda_Activation_Multiply
 	( float * pDst, NNBufDim dimDst,
-		const float * pSrc, NNBufDim dimSrc, int nDepthwise, cudaStream_t stream )
+		const float * pSrc, NNBufDim dimSrc,
+		size_t xLeftBounds, int nDepthwise, cudaStream_t stream )
 {
 	nncuda_Activation<NNAFunctionMultiply>
-		( pDst, dimDst, pSrc, dimSrc, nDepthwise, stream ) ;
+		( pDst, dimDst, pSrc, dimSrc, xLeftBounds, nDepthwise, stream ) ;
 }
 
 size_t Palesibyl::nncuda_IsAcceptableActivationChannels

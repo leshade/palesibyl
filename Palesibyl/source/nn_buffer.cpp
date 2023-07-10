@@ -110,6 +110,32 @@ void NNBuffer::TransformShape( const NNBufDim& dim )
 	}
 }
 
+// 所有バッファ入れ替え
+//////////////////////////////////////////////////////////////////////////////
+void NNBuffer::SwapBuffer( NNBuffer& bufSwap )
+{
+	assert( m_dimSize == bufSwap.m_dimSize ) ;
+	assert( m_commitBuf == bufSwap.m_commitBuf ) ;
+	assert( m_commitCuda == bufSwap.m_commitCuda ) ;
+
+	bool		invalidCuda = m_invalidCuda ;
+	uint32_t	cudaFlags = m_cudaFlags ;
+	std::shared_ptr< std::vector<float> >
+				buffer = m_buffer ;
+	std::shared_ptr< CudaFloat1DMemory >
+				cudaMemory = m_cudaMemory ;
+
+	m_invalidCuda = bufSwap.m_invalidCuda ;
+	m_cudaFlags = bufSwap.m_cudaFlags ;
+	m_buffer = bufSwap.m_buffer ;
+	m_cudaMemory = bufSwap.m_cudaMemory ;
+
+	bufSwap.m_invalidCuda = m_invalidCuda ;
+	bufSwap.m_cudaFlags = cudaFlags ;
+	bufSwap.m_buffer = buffer ;
+	bufSwap.m_cudaMemory = cudaMemory ;
+}
+
 // バッファ解放
 //////////////////////////////////////////////////////////////////////////////
 void NNBuffer::Free( void )
@@ -368,6 +394,9 @@ void NNBuffer::ShiftCopyChannelFrom
 {
 	assert( nnSrcBuf.IsCommitted() ) ;
 	Commit() ;
+
+	assert( (this != &nnSrcBuf)
+			|| ((xShiftSample <= 0) && (yShitSample <= 0)) ) ;
 
 	if ( m_dimSize.z <= iDstChannel )
 	{

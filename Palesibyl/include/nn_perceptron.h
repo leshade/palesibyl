@@ -396,13 +396,13 @@ public:
 	// 予測処理
 	virtual void Prediction
 		( CPUWorkArray& bufWorks, Buffer& bufThis,
-			const InputBuffer bufInput, NNLoopStream& stream ) ;
+			const InputBuffer bufInput, NNLoopStream& stream, size_t xLeftBounds = 0 ) ;
 	virtual void cpuPrediction
 		( CPUWorkArray& bufWorks, Buffer& bufThis,
-			const InputBuffer bufInput, NNLoopStream& stream ) ;
+			const InputBuffer bufInput, NNLoopStream& stream, size_t xLeftBounds = 0 ) ;
 	virtual void cudaPrediction
 		( CPUWorkArray& bufWorks, Buffer& bufThis,
-			const InputBuffer bufInput, NNLoopStream& stream ) ;
+			const InputBuffer bufInput, NNLoopStream& stream, size_t xLeftBounds = 0 ) ;
 	// 損失計算
 	virtual double cpuCalcLoss
 		( CPUWorkArray& bufWorks, Buffer& bufThis,

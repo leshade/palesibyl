@@ -460,10 +460,10 @@ public:
 	static inline void cudaActivation
 		( float * pDst, NNBufDim dimDst,
 			const float * pSrc, NNBufDim dimSrc,
-			size_t nDepthwise, cudaStream_t stream )
+			size_t xLeftBounds, size_t nDepthwise, cudaStream_t stream )
 	{
 		nncuda_Activation_Linear
-			( pDst, dimDst, pSrc, dimSrc, (int) nDepthwise, stream ) ;
+			( pDst, dimDst, pSrc, dimSrc, xLeftBounds, (int) nDepthwise, stream ) ;
 	}
 	// 微分関数（ pDst 要素数は pSrc 要素数と同じ nSrcCount ）
 	static inline __NN_CUDA_DEV__ float kernelPreDifferential
@@ -539,10 +539,10 @@ public:
 	static inline void cudaActivation
 		( float * pDst, NNBufDim dimDst,
 			const float * pSrc, NNBufDim dimSrc,
-			size_t nDepthwise, cudaStream_t stream )
+			size_t xLeftBounds, size_t nDepthwise, cudaStream_t stream )
 	{
 		nncuda_Activation_ReLU
-			( pDst, dimDst, pSrc, dimSrc, (int) nDepthwise, stream ) ;
+			( pDst, dimDst, pSrc, dimSrc, xLeftBounds, (int) nDepthwise, stream ) ;
 	}
 	static inline __NN_CUDA_DEV__ float kernelDifferential
 		( size_t iDst, const float * pSrc, size_t nSrcCount, size_t nDepthwise )
@@ -603,10 +603,10 @@ public:
 	static inline void cudaActivation
 		( float * pDst, NNBufDim dimDst,
 			const float * pSrc, NNBufDim dimSrc,
-			size_t nDepthwise, cudaStream_t stream )
+			size_t xLeftBounds, size_t nDepthwise, cudaStream_t stream )
 	{
 		nncuda_Activation_Sigmoid
-			( pDst, dimDst, pSrc, dimSrc, (int) nDepthwise, stream ) ;
+			( pDst, dimDst, pSrc, dimSrc, xLeftBounds, (int) nDepthwise, stream ) ;
 	}
 	static inline __NN_CUDA_DEV__ float kernelPreDifferential
 		( const float * pSrc, const float * pActOut,
@@ -669,10 +669,10 @@ public:
 	static inline void cudaActivation
 		( float * pDst, NNBufDim dimDst,
 			const float * pSrc, NNBufDim dimSrc,
-			size_t nDepthwise, cudaStream_t stream )
+			size_t xLeftBounds, size_t nDepthwise, cudaStream_t stream )
 	{
 		nncuda_Activation_Tanh
-			( pDst, dimDst, pSrc, dimSrc, (int) nDepthwise, stream ) ;
+			( pDst, dimDst, pSrc, dimSrc, xLeftBounds, (int) nDepthwise, stream ) ;
 	}
 	static inline __NN_CUDA_DEV__ float kernelDifferential
 		( size_t iDst, const float * pSrc, size_t nSrcCount, size_t nDepthwise )
@@ -752,10 +752,10 @@ public:
 	static inline void cudaActivation
 		( float * pDst, NNBufDim dimDst,
 			const float * pSrc, NNBufDim dimSrc,
-			size_t nDepthwise, cudaStream_t stream )
+			size_t xLeftBounds, size_t nDepthwise, cudaStream_t stream )
 	{
 		nncuda_Activation_Softmax
-			( pDst, dimDst, pSrc, dimSrc, (int) nDepthwise, stream ) ;
+			( pDst, dimDst, pSrc, dimSrc, xLeftBounds, (int) nDepthwise, stream ) ;
 	}
 	static inline __NN_CUDA_DEV__ float kernelPreDifferential
 		( const float * pSrc, const float * pActOut,
@@ -867,10 +867,10 @@ public:
 	static inline void cudaActivation
 		( float * pDst, NNBufDim dimDst,
 			const float * pSrc, NNBufDim dimSrc,
-			size_t nDepthwise, cudaStream_t stream )
+			size_t xLeftBounds, size_t nDepthwise, cudaStream_t stream )
 	{
 		nncuda_Activation_Argmax
-			( pDst, dimDst, pSrc, dimSrc, (int) nDepthwise, stream ) ;
+			( pDst, dimDst, pSrc, dimSrc, xLeftBounds, (int) nDepthwise, stream ) ;
 	}
 	static inline __NN_CUDA_DEV__ float kernelPreDifferential
 		( const float * pSrc, const float * pActOut,
@@ -1003,10 +1003,10 @@ public:
 	static inline void cudaActivation
 		( float * pDst, NNBufDim dimDst,
 			const float * pSrc, NNBufDim dimSrc,
-			size_t nDepthwise, cudaStream_t stream )
+			size_t xLeftBounds, size_t nDepthwise, cudaStream_t stream )
 	{
 		nncuda_Activation_MaxPool
-			( pDst, dimDst, pSrc, dimSrc, (int) nDepthwise, stream ) ;
+			( pDst, dimDst, pSrc, dimSrc, xLeftBounds, (int) nDepthwise, stream ) ;
 	}
 	static inline __NN_CUDA_DEV__ float kernelPreDifferential
 		( const float * pSrc, const float * pActOut,
@@ -1101,10 +1101,10 @@ public:
 	static inline void cudaActivation
 		( float * pDst, NNBufDim dimDst,
 			const float * pSrc, NNBufDim dimSrc,
-			size_t nDepthwise, cudaStream_t stream )
+			size_t xLeftBounds, size_t nDepthwise, cudaStream_t stream )
 	{
 		nncuda_Activation_Multiply
-			( pDst, dimDst, pSrc, dimSrc, (int) nDepthwise, stream ) ;
+			( pDst, dimDst, pSrc, dimSrc, xLeftBounds, (int) nDepthwise, stream ) ;
 	}
 	static inline __NN_CUDA_DEV__ float kernelDifferential
 		( size_t iDst, const float * pSrc, size_t nSrcCount, size_t nDepthwise )

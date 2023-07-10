@@ -12,13 +12,13 @@ using namespace Palesibyl ;
 //////////////////////////////////////////////////////////////////////////////
 
 __global__ void nnkernel_Activation_Argmax
-	( float * pDst, NNBufDim dimDst,
+	( float * pDst, NNBufDim dimDst, int xLeftBounds,
 		const float * pSrc, NNBufDim dimSrc, int xThreads, int yThreads )
 {
 	const int	tx = threadIdx.x ;
 	const int	ty = threadIdx.y ;
 	const int	ti = ty * xThreads + tx ;
-	const int	bx = blockIdx.x * yThreads + ty ;
+	const int	bx = blockIdx.x * yThreads + ty + xLeftBounds ;
 	const int	by = blockIdx.y ;
 	const int	bi = by * dimDst.x + bx ;
 	if ( (bx > dimDst.x) || (bi >= dimDst.n) )
@@ -79,22 +79,24 @@ __global__ void nnkernel_Activation_Argmax
 
 void Palesibyl::nncuda_Activation_Argmax
 	( float * pDst, NNBufDim dimDst,
-		const float * pSrc, NNBufDim dimSrc, int nDepthwise, cudaStream_t stream )
+		const float * pSrc, NNBufDim dimSrc,
+		size_t xLeftBounds, int nDepthwise, cudaStream_t stream )
 {
 	assert( dimDst.z == argmaxChannelCount ) ;
 	assert( nDepthwise == 1 ) ;
+	assert( dimDst.x > xLeftBounds ) ;
 
 	unsigned int	xThreads = (unsigned int) (cudaMaxThreadCount
-										/ min(dimDst.x, cudaMaxThreadCount/64)) ;
+								/ min(dimDst.x - xLeftBounds, cudaMaxThreadCount/64)) ;
 	unsigned int	yThreads = (unsigned int) cudaMaxThreadCount / xThreads ;
 
 	dim3	threads( xThreads, yThreads ) ;
-	dim3	grid( ((unsigned int) dimDst.x + yThreads - 1) / yThreads,
+	dim3	grid( ((unsigned int) (dimDst.x - xLeftBounds) + yThreads - 1) / yThreads,
 					(unsigned int) dimDst.y ) ;
 
 	nnkernel_Activation_Argmax
 		<<<grid, threads, 0, stream>>>
-			( pDst, dimDst, pSrc, dimSrc, xThreads, yThreads ) ;
+			( pDst, dimDst, (int) xLeftBounds, pSrc, dimSrc, xThreads, yThreads ) ;
 }
 
 

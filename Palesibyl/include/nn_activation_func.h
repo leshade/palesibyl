@@ -51,7 +51,7 @@ public:
 	virtual void cudaFunction
 		( float * pDst, NNBufDim dimDst,
 			const float * pSrc, NNBufDim dimSrc,
-			size_t nDepthwise, cudaStream_t stream ) = 0 ;
+			size_t xLeftBounds, size_t nDepthwise, cudaStream_t stream ) = 0 ;
 	// 微分関数
 	virtual void cpuDifferential
 		( float * pDst, const float * pSrc,
@@ -135,9 +135,10 @@ public:
 	virtual void cudaFunction
 		( float * pDst, NNBufDim dimDst,
 			const float * pSrc, NNBufDim dimSrc,
-			size_t nDepthwise, cudaStream_t stream )
+			size_t xLeftBounds, size_t nDepthwise, cudaStream_t stream )
 	{
-		A::cudaActivation( pDst, dimDst, pSrc, dimSrc, nDepthwise, stream ) ;
+		A::cudaActivation
+			( pDst, dimDst, pSrc, dimSrc, xLeftBounds, nDepthwise, stream ) ;
 	}
 	// 微分関数
 	virtual void cpuDifferential

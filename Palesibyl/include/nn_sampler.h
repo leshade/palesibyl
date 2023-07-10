@@ -78,12 +78,13 @@ public:
 			const float * pSrc, NNBufDim dimSrc,
 			const float * pMatrix,
 			size_t xMatrix, size_t yMatrix, size_t iMatrixBias,
-			int nDepthwise, const NNSamplingParam& sp, cudaStream_t stream )
+			size_t xLeftBounds, int nDepthwise,
+			const NNSamplingParam& sp, cudaStream_t stream )
 	{
 		nncuda_Matrix_Clamp
 			( pDst, dimDst, pSrc, dimSrc,
 				pMatrix, xMatrix, yMatrix, iMatrixBias,
-				nDepthwise, sp, stream ) ;
+				xLeftBounds, nDepthwise, sp, stream ) ;
 	}
 	// CUDA での更新用行列勾配計算
 	static inline void cudaCalcMatrixGradient
@@ -164,12 +165,13 @@ public:
 			const float * pSrc, NNBufDim dimSrc,
 			const float * pMatrix,
 			size_t xMatrix, size_t yMatrix, size_t iMatrixBias, 
-			int nDepthwise, const NNSamplingParam& sp, cudaStream_t stream )
+			size_t xLeftBounds, int nDepthwise,
+			const NNSamplingParam& sp, cudaStream_t stream )
 	{
 		nncuda_Matrix_Edge
 			( pDst, dimDst, pSrc, dimSrc,
 				pMatrix, xMatrix, yMatrix, iMatrixBias,
-				nDepthwise, sp, stream ) ;
+				xLeftBounds, nDepthwise, sp, stream ) ;
 	}
 	static inline void cudaCalcMatrixGradient
 		( float * pGradient, NNBufDim dimGradient,
@@ -237,12 +239,13 @@ public:
 			const float * pSrc, NNBufDim dimSrc,
 			const float * pMatrix,
 			size_t xMatrix, size_t yMatrix, size_t iMatrixBias, 
-			int nDepthwise, const NNSamplingParam& sp, cudaStream_t stream )
+			size_t xLeftBounds, int nDepthwise,
+			const NNSamplingParam& sp, cudaStream_t stream )
 	{
 		nncuda_Matrix_Conv_Clamp
 			( pDst, dimDst, pSrc, dimSrc,
 				pMatrix, xMatrix, yMatrix, iMatrixBias,
-				nDepthwise, sp, stream ) ;
+				xLeftBounds, nDepthwise, sp, stream ) ;
 	}
 	static inline void cudaCalcMatrixGradient
 		( float * pGradient, NNBufDim dimGradient,
@@ -270,12 +273,13 @@ public:
 			const float * pSrc, NNBufDim dimSrc,
 			const float * pMatrix,
 			size_t xMatrix, size_t yMatrix, size_t iMatrixBias,
-			int nDepthwise, const NNSamplingParam& sp, cudaStream_t stream )
+			size_t xLeftBounds, int nDepthwise,
+			const NNSamplingParam& sp, cudaStream_t stream )
 	{
 		nncuda_Matrix_Conv_Edge
 			( pDst, dimDst, pSrc, dimSrc,
 				pMatrix, xMatrix, yMatrix, iMatrixBias,
-				nDepthwise, sp, stream ) ;
+				xLeftBounds, nDepthwise, sp, stream ) ;
 	}
 	static inline void cudaCalcMatrixGradient
 		( float * pGradient, NNBufDim dimGradient,
@@ -355,12 +359,13 @@ public:
 			const float * pSrc, NNBufDim dimSrc,
 			const float * pMatrix,
 			size_t xMatrix, size_t yMatrix, size_t iMatrixBias,
-			int nDepthwise, const NNSamplingParam& sp, cudaStream_t stream )
+			size_t xLeftBounds, int nDepthwise,
+			const NNSamplingParam& sp, cudaStream_t stream )
 	{
 		nncuda_Matrix_UpSampler
 			( pDst, dimDst, pSrc, dimSrc,
 				pMatrix, xMatrix, yMatrix, iMatrixBias,
-				nDepthwise, sp, stream ) ;
+				xLeftBounds, nDepthwise, sp, stream ) ;
 	}
 	static inline void cudaCalcMatrixGradient
 		( float * pGradient, NNBufDim dimGradient,
@@ -427,12 +432,13 @@ public:
 			const float * pSrc, NNBufDim dimSrc,
 			const float * pMatrix,
 			size_t xMatrix, size_t yMatrix, size_t iMatrixBias,
-			int nDepthwise, const NNSamplingParam& sp, cudaStream_t stream )
+			size_t xLeftBounds, int nDepthwise,
+			const NNSamplingParam& sp, cudaStream_t stream )
 	{
 		nncuda_Matrix_OneHot
 			( pDst, dimDst, pSrc, dimSrc,
 				pMatrix, xMatrix, yMatrix, iMatrixBias,
-				nDepthwise, sp, stream ) ;
+				xLeftBounds, nDepthwise, sp, stream ) ;
 	}
 	static inline void cudaCalcMatrixGradient
 		( float * pGradient, NNBufDim dimGradient,

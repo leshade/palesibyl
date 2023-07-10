@@ -253,7 +253,8 @@ void NNNormalizationFilter::GradientBuf::ResetGradient( void )
 //////////////////////////////////////////////////////////////////////////////
 void NNNormalizationFilter::cpuNormalize
 	( NNBuffer& bufSample,
-		NNNormalizationFilter::WorkBuf& bufWork, NNLoopStream& stream ) const
+		NNNormalizationFilter::WorkBuf& bufWork,
+		NNLoopStream& stream, size_t xLeftBounds ) const
 {
 	const NNBufDim	dimSample = bufSample.GetSize() ;
 	const size_t	nThreads = stream.m_ploop.GetThreadCount() ;
@@ -279,8 +280,8 @@ void NNNormalizationFilter::cpuNormalize
 		const uint32_t *		pIndices = m_vecIndices.data() ;
 		const Parameter *		param = m_params.data() ;
 		const MeanAndVariance *	pmav = bufWork.vecVariance.data() ;
-		float *					pSample = bufSample.GetBufferAt( 0, y ) ;
-		for ( size_t x = 0; x < dimSample.x; x ++ )
+		float *					pSample = bufSample.GetBufferAt( xLeftBounds, y ) ;
+		for ( size_t x = xLeftBounds; x < dimSample.x; x ++ )
 		{
 			for ( size_t z = 0; z < dimSample.z; z ++ )
 			{
@@ -298,7 +299,8 @@ void NNNormalizationFilter::cpuNormalize
 
 void NNNormalizationFilter::cudaNormalize
 	( NNBuffer& bufSample,
-		NNNormalizationFilter::WorkBuf& bufWork, NNLoopStream& stream ) const
+		NNNormalizationFilter::WorkBuf& bufWork,
+		NNLoopStream& stream, size_t xLeftBounds ) const
 {
 	// パラメータ転送
 	if ( !bufWork.transParam )
@@ -321,7 +323,7 @@ void NNNormalizationFilter::cudaNormalize
 	bufSample.CommitCuda() ;
 
 	nncuda_Normalize
-		( bufSample.GetCudaPtr(), bufSample.GetSize(),
+		( bufSample.GetCudaPtr(), bufSample.GetSize(), xLeftBounds,
 			bufWork.bufParameter.GetCudaPtr(),
 			bufWork.bufVariance.GetCudaPtr(),
 			(int) SamplingChannels( m_vecIndices.size() ), stream.m_cudaStream ) ;

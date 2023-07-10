@@ -57,6 +57,8 @@ public:
 	// 配列形状変換
 	void TransformShape( size_t width, size_t height, size_t ch ) ;
 	void TransformShape( const NNBufDim& dim ) ;
+	// 所有バッファ入れ替え
+	void SwapBuffer( NNBuffer& bufSwap ) ;
 	// バッファ解放
 	void Free( void ) ;
 	// フィル

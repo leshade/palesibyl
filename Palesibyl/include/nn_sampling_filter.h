@@ -74,8 +74,8 @@ public:
 		( float * pDst, NNBufDim dimDst,
 			const float * pSrc, NNBufDim dimSrc,
 			const float * pMatrix,
-			size_t xMatrix, size_t yMatrix,
-			size_t iMatrixBias, int nDepthwise, cudaStream_t stream ) = 0 ;
+			size_t xMatrix, size_t yMatrix, size_t iMatrixBias,
+			size_t xLeftBounds, int nDepthwise, cudaStream_t stream ) = 0 ;
 	// CPU での行列勾配計算（加算）
 	virtual void cpuCalcMatrixGradient
 		( NNMatrix& matGradient, int xPos, int yPos,
@@ -193,13 +193,13 @@ public:
 		( float * pDst, NNBufDim dimDst,
 			const float * pSrc, NNBufDim dimSrc,
 			const float * pMatrix,
-			size_t xMatrix, size_t yMatrix,
-			size_t iMatrixBias, int nDepthwise, cudaStream_t stream )
+			size_t xMatrix, size_t yMatrix, size_t iMatrixBias,
+			size_t xLeftBounds, int nDepthwise, cudaStream_t stream )
 	{
 		S::cudaMatrix
 			( pDst, dimDst, pSrc, dimSrc,
 				pMatrix, xMatrix, yMatrix, iMatrixBias,
-				nDepthwise, *this, stream ) ;
+				xLeftBounds, nDepthwise, *this, stream ) ;
 	}
 	// CUDA 行列勾配計算
 	virtual void cudaCalcMatrixGradient

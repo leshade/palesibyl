@@ -1196,15 +1196,15 @@ void NNPerceptron::Prediction
 	( NNPerceptron::CPUWorkArray& bufWorks,
 		NNPerceptron::Buffer& bufThis,
 		const NNPerceptron::InputBuffer bufInput,
-		NNLoopStream& stream )
+		NNLoopStream& stream, size_t xLeftBounds )
 {
 	if ( stream.m_useCuda )
 	{
-		cudaPrediction( bufWorks, bufThis, bufInput, stream ) ;
+		cudaPrediction( bufWorks, bufThis, bufInput, stream, xLeftBounds ) ;
 	}
 	else
 	{
-		cpuPrediction( bufWorks, bufThis, bufInput, stream ) ;
+		cpuPrediction( bufWorks, bufThis, bufInput, stream, xLeftBounds ) ;
 	}
 }
 
@@ -1212,7 +1212,7 @@ void NNPerceptron::cpuPrediction
 	( NNPerceptron::CPUWorkArray& bufWorks,
 		NNPerceptron::Buffer& bufThis,
 		const NNPerceptron::InputBuffer bufInput,
-		NNLoopStream& stream )
+		NNLoopStream& stream, size_t xLeftBounds )
 {
 	const NNBufDim	dimInAct = bufThis.bufInAct.GetSize() ;
 	const NNBufDim	dimOutput = bufThis.bufOutput.GetSize() ;
@@ -1234,7 +1234,7 @@ void NNPerceptron::cpuPrediction
 		{
 			const float *			pInputBuf = bufInput.pInput->GetConstBuffer() ;
 			const size_t			nSrcChannels = m_matrix.GetColumnCount() ;
-			float *					pInAct = bufThis.bufInAct.GetBufferAt( 0, y ) ;
+			float *					pInAct = bufThis.bufInAct.GetBufferAt( xLeftBounds, y ) ;
 			float *					pSrcVec = bufWorks.at(iThread).vecSrc.data() ;
 			const size_t			nDepthwise = GetDepthwise() ;
 			const size_t			xMatrixBias = m_matrix.GetColumnCount() - m_bias ;
@@ -1242,7 +1242,7 @@ void NNPerceptron::cpuPrediction
 
 			assert( bufWorks.at(iThread).vecSrc.size() >= nSrcChannels ) ;
 
-			for ( size_t x = 0; x < dimOutput.x; x ++ )
+			for ( size_t x = xLeftBounds; x < dimOutput.x; x ++ )
 			{
 				pSampler->cpuMatrix
 					( pInAct, (int) x, (int) y, m_matrix,
@@ -1258,7 +1258,8 @@ void NNPerceptron::cpuPrediction
 			m_normalizer->cpuAggregateSample
 				( bufThis.normWorkBuf, bufThis.bufInAct, stream ) ;
 		}
-		m_normalizer->cpuNormalize( bufThis.bufInAct, bufThis.normWorkBuf, stream ) ;
+		m_normalizer->cpuNormalize
+			( bufThis.bufInAct, bufThis.normWorkBuf, stream, xLeftBounds ) ;
 
 		// 活性化関数とドロップアウト
 		stream.m_ploop.Loop( 0, dimOutput.y, [&]( size_t iThread, size_t y )
@@ -1269,12 +1270,12 @@ void NNPerceptron::cpuPrediction
 												&& bufThis.bufDropoutMask.IsCommitted()
 												? bufThis.bufDropoutMask.GetConstBuffer() : nullptr ;
 			const size_t			nSrcChannels = m_matrix.GetColumnCount() ;
-			float *					pInAct = bufThis.bufInAct.GetBufferAt( 0, y ) ;
-			float *					pOutput = bufThis.bufOutput.GetBufferAt( 0, y ) ;
+			float *					pInAct = bufThis.bufInAct.GetBufferAt( xLeftBounds, y ) ;
+			float *					pOutput = bufThis.bufOutput.GetBufferAt( xLeftBounds, y ) ;
 			const size_t			nDepthwise = GetActivationDepthwise() ;
 			NNActivationFunction *	pActivation = m_activation.get() ;
 
-			for ( size_t x = 0; x < dimOutput.x; x ++ )
+			for ( size_t x = xLeftBounds; x < dimOutput.x; x ++ )
 			{
 				pActivation->cpuFunction( pOutput, pInAct, dimInAct.z, nDepthwise ) ;
 
@@ -1301,8 +1302,8 @@ void NNPerceptron::cpuPrediction
 												&& bufThis.bufDropoutMask.IsCommitted()
 												? bufThis.bufDropoutMask.GetConstBuffer() : nullptr ;
 			const size_t			nSrcChannels = m_matrix.GetColumnCount() ;
-			float *					pInAct = bufThis.bufInAct.GetBufferAt( 0, y ) ;
-			float *					pOutput = bufThis.bufOutput.GetBufferAt( 0, y ) ;
+			float *					pInAct = bufThis.bufInAct.GetBufferAt( xLeftBounds, y ) ;
+			float *					pOutput = bufThis.bufOutput.GetBufferAt( xLeftBounds, y ) ;
 			float *					pSrcVec = bufWorks.at(iThread).vecSrc.data() ;
 			const size_t			nDepthwise = GetDepthwise() ;
 			const size_t			nActDepthwise = GetActivationDepthwise() ;
@@ -1312,7 +1313,7 @@ void NNPerceptron::cpuPrediction
 
 			assert( bufWorks.at(iThread).vecSrc.size() >= nSrcChannels ) ;
 
-			for ( size_t x = 0; x < dimOutput.x; x ++ )
+			for ( size_t x = xLeftBounds; x < dimOutput.x; x ++ )
 			{
 				pSampler->cpuMatrix
 					( pInAct, (int) x, (int) y, m_matrix,
@@ -1341,7 +1342,7 @@ void NNPerceptron::cudaPrediction
 	( NNPerceptron::CPUWorkArray& bufWorks,
 		NNPerceptron::Buffer& bufThis,
 		const NNPerceptron::InputBuffer bufInput,
-		NNLoopStream& stream )
+		NNLoopStream& stream, size_t xLeftBounds )
 {
 	const NNBufDim	dimInAct = bufThis.bufInAct.GetSize() ;
 	const NNBufDim	dimOutput = bufThis.bufOutput.GetSize() ;
@@ -1371,7 +1372,7 @@ void NNPerceptron::cudaPrediction
 			m_matrix.GetColumnCount(),
 			m_matrix.GetLineCount(),
 			m_matrix.GetColumnCount() - m_bias,
-			(int) GetDepthwise(), stream.m_cudaStream ) ;
+			xLeftBounds, (int) GetDepthwise(), stream.m_cudaStream ) ;
 	stream.m_cudaStream.VerifySync() ;
 
 	if ( m_normalizer != nullptr )
@@ -1382,13 +1383,13 @@ void NNPerceptron::cudaPrediction
 				( bufThis.normWorkBuf, bufThis.bufInAct, stream ) ;
 		}
 		m_normalizer->cudaNormalize
-			( bufThis.bufInAct, bufThis.normWorkBuf, stream ) ;
+			( bufThis.bufInAct, bufThis.normWorkBuf, stream, xLeftBounds ) ;
 	}
 
 	m_activation->cudaFunction
 		( bufThis.bufOutput.GetCudaPtr(), dimOutput,
 			bufThis.bufInAct.GetCudaPtr(), dimInAct,
-			GetActivationDepthwise(), stream.m_cudaStream ) ;
+			xLeftBounds, GetActivationDepthwise(), stream.m_cudaStream ) ;
 	stream.m_cudaStream.VerifySync() ;
 
 	if ( !(m_behavior & (behaviorFixed | behaviorNoDropout))
@@ -1512,6 +1513,11 @@ void NNPerceptron::cpuShiftBufferWithStreaming
 		bufThis.bufDelay.Commit() ;
 		bufThis.bufDelay.CopyFrom( bufThis.bufOutput, NNBufDim( xShift, 0, 0 ) ) ;
 	}
+	else
+	{
+		bufThis.bufOutput.ShiftCopyChannelFrom
+				( 0, bufThis.bufOutput, - (int) xShift, 0 ) ;
+	}
 }
 
 void NNPerceptron::cudaShiftBufferWithStreaming
@@ -1525,6 +1531,16 @@ void NNPerceptron::cudaShiftBufferWithStreaming
 		bufThis.bufDelay.CudaCopyChannelFrom
 			( 0, bufThis.bufOutput, - (int) xShift, 0,
 					0, dimOutput.z, stream.m_cudaStream ) ;
+	}
+	else
+	{
+		assert( bufThis.bufOutput.IsCommittedCuda() ) ;
+		const NNBufDim	dimOutput = bufThis.bufOutput.GetSize() ;
+		bufThis.bufDelay.CommitCuda() ;
+		bufThis.bufDelay.CudaCopyChannelFrom
+			( 0, bufThis.bufOutput, - (int) xShift, 0,
+					0, dimOutput.z, stream.m_cudaStream ) ;
+		bufThis.bufOutput.SwapBuffer( bufThis.bufDelay ) ;
 	}
 }
 

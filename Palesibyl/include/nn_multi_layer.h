@@ -102,12 +102,13 @@ public:
 	{
 		uint32_t								flags ;		// enum PrepareBufferFlag の組み合わせ
 		int										iDelta2 ;	// δ逆伝播２パス目開始レイヤー
+		size_t									xBoundary ;	// ストリーミングでの開始位置
 		NNLoopStream							stream ;
 		NNPerceptron::BufferArray				buffers ;
 		NNPerceptron::CPUWorkArrayArray			works ;
 		std::vector<NNPerceptron::InputBuffer>	inBufs ;
 
-		BufferArrays( void ) : flags(0), iDelta2(-1) { }
+		BufferArrays( void ) : flags(0), iDelta2(-1), xBoundary(0) { }
 	} ;
 	class	LossAndGradientArray
 				: public std::vector<NNPerceptron::LossAndGradientBuf>

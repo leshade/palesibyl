@@ -8,7 +8,7 @@
 //////////////////////////////////////////////////////////////////////////////
 
 template <int DZ> __global__ void nnkernel_Matrix_OneHot
-	( float * pDst, NNBufDim dimDst,
+	( float * pDst, NNBufDim dimDst, int xLeftBounds,
 		const float * pSrc, NNBufDim dimSrc,
 		const float * pMatrix, int xMatrix, int yMatrix, size_t iMatrixBias,
 		int xStride, int yStride, int xOffset, int yOffset, int xThreads, int yThreads )
@@ -16,7 +16,7 @@ template <int DZ> __global__ void nnkernel_Matrix_OneHot
 	const int	tx = threadIdx.x ;
 	const int	ty = threadIdx.y ;
 	const int	txyi = ty * xThreads + tx ;
-	const int	bx0 = blockIdx.x * xThreads ;
+	const int	bx0 = blockIdx.x * xThreads + xLeftBounds ;
 	const int	by0 = blockIdx.y * yThreads ;
 	const int	bx = bx0 + tx ;
 	const int	by = by0 + ty ;
@@ -81,7 +81,7 @@ void Palesibyl::nncuda_Matrix_OneHot
 		const float * pSrc, NNBufDim dimSrc,
 		const float * pMatrix,
 		size_t xMatrix, size_t yMatrix, size_t iMatrixBias,
-		int nDepthwise, const NNSamplingParam& sp, cudaStream_t stream )
+		size_t xLeftBounds, int nDepthwise, const NNSamplingParam& sp, cudaStream_t stream )
 {
 	assert( dimSrc.z == 1 ) ;
 
@@ -89,12 +89,12 @@ void Palesibyl::nncuda_Matrix_OneHot
 	const unsigned int	yThreads = 256/xThreads ;
 
 	dim3	threads( xThreads, yThreads ) ;
-	dim3	grid( ((unsigned int) dimDst.x + xThreads - 1) / xThreads,
+	dim3	grid( ((unsigned int) (dimDst.x - xLeftBounds) + xThreads - 1) / xThreads,
 					(unsigned int) (dimDst.y + yThreads - 1) / yThreads ) ;
 
 	nnkernel_Matrix_OneHot<32>
 		<<<grid, threads, 0, stream>>>
-			( pDst, dimDst, pSrc, dimSrc,
+			( pDst, dimDst, (int) xLeftBounds, pSrc, dimSrc,
 				pMatrix, (int) xMatrix, (int) yMatrix, iMatrixBias,
 				sp.m_xStride, sp.m_yStride, sp.m_xOffset, sp.m_yOffset, xThreads, yThreads ) ;
 }

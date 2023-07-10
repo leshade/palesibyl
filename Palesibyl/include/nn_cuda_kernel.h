@@ -44,42 +44,48 @@ void nncuda_Matrix_Clamp
 		const float * pSrc, NNBufDim dimSrc,
 		const float * pMatrix,
 		size_t xMatrix, size_t yMatrix, size_t iMatrixBias,
-		int nDepthwise, const NNSamplingParam& sp, cudaStream_t stream ) ;
+		size_t xLeftBounds, int nDepthwise,
+		const NNSamplingParam& sp, cudaStream_t stream ) ;
 
 void nncuda_Matrix_Edge
 	( float * pDst, NNBufDim dimDst,
 		const float * pSrc, NNBufDim dimSrc,
 		const float * pMatrix,
 		size_t xMatrix, size_t yMatrix, size_t iMatrixBias,
-		int nDepthwise, const NNSamplingParam& sp, cudaStream_t stream ) ;
+		size_t xLeftBounds, int nDepthwise,
+		const NNSamplingParam& sp, cudaStream_t stream ) ;
 
 void nncuda_Matrix_Conv_Clamp
 	( float * pDst, NNBufDim dimDst,
 		const float * pSrc, NNBufDim dimSrc,
 		const float * pMatrix,
 		size_t xMatrix, size_t yMatrix, size_t iMatrixBias,
-		int nDepthwise, const NNSamplingParam& sp, cudaStream_t stream ) ;
+		size_t xLeftBounds, int nDepthwise,
+		const NNSamplingParam& sp, cudaStream_t stream ) ;
 
 void nncuda_Matrix_Conv_Edge
 	( float * pDst, NNBufDim dimDst,
 		const float * pSrc, NNBufDim dimSrc,
 		const float * pMatrix,
 		size_t xMatrix, size_t yMatrix, size_t iMatrixBias,
-		int nDepthwise, const NNSamplingParam& sp, cudaStream_t stream ) ;
+		size_t xLeftBounds, int nDepthwise,
+		const NNSamplingParam& sp, cudaStream_t stream ) ;
 
 void nncuda_Matrix_UpSampler
 	( float * pDst, NNBufDim dimDst,
 		const float * pSrc, NNBufDim dimSrc,
 		const float * pMatrix,
 		size_t xMatrix, size_t yMatrix, size_t iMatrixBias,
-		int nDepthwise, const NNSamplingParam& sp, cudaStream_t stream ) ;
+		size_t xLeftBounds, int nDepthwise,
+		const NNSamplingParam& sp, cudaStream_t stream ) ;
 
 void nncuda_Matrix_OneHot
 	( float * pDst, NNBufDim dimDst,
 		const float * pSrc, NNBufDim dimSrc,
 		const float * pMatrix,
 		size_t xMatrix, size_t yMatrix, size_t iMatrixBias,
-		int nDepthwise, const NNSamplingParam& sp, cudaStream_t stream ) ;
+		size_t xLeftBounds, int nDepthwise,
+		const NNSamplingParam& sp, cudaStream_t stream ) ;
 
 
 
@@ -204,35 +210,43 @@ size_t nncuda_CalcMatrixGradientBlockY( size_t x, size_t y ) ;
 
 void nncuda_Activation_Linear
 	( float * pDst, NNBufDim dimDst,
-		const float * pSrc, NNBufDim dimSrc, int nDepthwise, cudaStream_t stream ) ;
+		const float * pSrc, NNBufDim dimSrc,
+		size_t xLeftBounds, int nDepthwise, cudaStream_t stream ) ;
 
 void nncuda_Activation_ReLU
 	( float * pDst, NNBufDim dimDst,
-		const float * pSrc, NNBufDim dimSrc, int nDepthwise, cudaStream_t stream ) ;
+		const float * pSrc, NNBufDim dimSrc,
+		size_t xLeftBounds, int nDepthwise, cudaStream_t stream ) ;
 
 void nncuda_Activation_Sigmoid
 	( float * pDst, NNBufDim dimDst,
-		const float * pSrc, NNBufDim dimSrc, int nDepthwise, cudaStream_t stream ) ;
+		const float * pSrc, NNBufDim dimSrc,
+		size_t xLeftBounds, int nDepthwise, cudaStream_t stream ) ;
 
 void nncuda_Activation_Tanh
 	( float * pDst, NNBufDim dimDst,
-		const float * pSrc, NNBufDim dimSrc, int nDepthwise, cudaStream_t stream ) ;
+		const float * pSrc, NNBufDim dimSrc,
+		size_t xLeftBounds, int nDepthwise, cudaStream_t stream ) ;
 
 void nncuda_Activation_Softmax
 	( float * pDst, NNBufDim dimDst,
-		const float * pSrc, NNBufDim dimSrc, int nDepthwise, cudaStream_t stream ) ;
+		const float * pSrc, NNBufDim dimSrc,
+		size_t xLeftBounds, int nDepthwise, cudaStream_t stream ) ;
 
 void nncuda_Activation_Argmax
 	( float * pDst, NNBufDim dimDst,
-		const float * pSrc, NNBufDim dimSrc, int nDepthwise, cudaStream_t stream ) ;
+		const float * pSrc, NNBufDim dimSrc,
+		size_t xLeftBounds, int nDepthwise, cudaStream_t stream ) ;
 
 void nncuda_Activation_MaxPool
 	( float * pDst, NNBufDim dimDst,
-		const float * pSrc, NNBufDim dimSrc, int nDepthwise, cudaStream_t stream ) ;
+		const float * pSrc, NNBufDim dimSrc,
+		size_t xLeftBounds, int nDepthwise, cudaStream_t stream ) ;
 
 void nncuda_Activation_Multiply
 	( float * pDst, NNBufDim dimDst,
-		const float * pSrc, NNBufDim dimSrc, int nDepthwise, cudaStream_t stream ) ;
+		const float * pSrc, NNBufDim dimSrc,
+		size_t xLeftBounds, int nDepthwise, cudaStream_t stream ) ;
 
 size_t nncuda_IsAcceptableActivationChannels( size_t zDstChannels, size_t zSrcChannels ) ;
 
@@ -352,7 +366,7 @@ void nncuda_CalcDistribution
 		const float * pSrc2, NNBufDim dimSrc2, cudaStream_t stream ) ;
 
 void nncuda_Normalize
-	( float * pSample, NNBufDim dimSample,
+	( float * pSample, NNBufDim dimSample, size_t xSampleBounds,
 		const float * pParams,
 		const float * pMeanVar, int zSampling, cudaStream_t stream ) ;
 

@@ -1212,9 +1212,9 @@ NNBuffer * NNMultiLayerPerceptron::Prediction
 		pLayer->Prediction
 			( *(bufArrays.works.at(i)),
 				*(bufArrays.buffers.at(i)),
-				bufArrays.inBufs.at(i), bufArrays.stream ) ;
+				bufArrays.inBufs.at(i),
+				bufArrays.stream, bufArrays.xBoundary ) ;
 		pOutput = &(bufArrays.buffers.at(i)->bufOutput) ;
-
 	}
 	if ( bufArrays.stream.m_useCuda )
 	{

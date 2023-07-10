@@ -138,9 +138,11 @@ public:
 	virtual void ResetWorkBuf( WorkBuf& bufWork ) const ;
 	// 分布を計算して正規化
 	virtual void cpuNormalize
-		( NNBuffer& bufSample, WorkBuf& bufWork, NNLoopStream& stream ) const ;
+		( NNBuffer& bufSample, WorkBuf& bufWork,
+			NNLoopStream& stream, size_t xLeftBounds = 0 ) const ;
 	virtual void cudaNormalize
-		( NNBuffer& bufSample, WorkBuf& bufWork, NNLoopStream& stream ) const ;
+		( NNBuffer& bufSample, WorkBuf& bufWork,
+			NNLoopStream& stream, size_t xLeftBounds = 0 ) const ;
 	// サンプルを集計
 	virtual void cpuAggregateSample
 		( WorkBuf& bufWork, const NNBuffer& bufSample, NNLoopStream& stream ) ;

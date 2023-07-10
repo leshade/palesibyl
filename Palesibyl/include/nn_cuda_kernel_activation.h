@@ -35,11 +35,12 @@ inline unsigned int CalcBatchSamples( size_t nBufCaps, size_t nDstWidth )
 
 template <class A> __global__ void nnkernel_Activation
 	( float * pDst, NNBufDim dimDst,
-		const float * pSrc, NNBufDim dimSrc, int nDepthwise, int xThreads, int yThreads )
+		const float * pSrc, NNBufDim dimSrc,
+		int xLeftBounds, int nDepthwise, int xThreads, int yThreads )
 {
 	const int	tx = threadIdx.x ;
 	const int	ty = threadIdx.y ;
-	const int	bx = blockIdx.x * yThreads + ty ;
+	const int	bx = blockIdx.x * yThreads + ty + xLeftBounds ;
 	const int	by = blockIdx.y ;
 	const int	bi = bx + by * dimDst.x ;
 	if ( (bx > dimDst.x) || (bi >= dimDst.n) )
@@ -78,11 +79,13 @@ template <class A> __global__ void nnkernel_Activation
 
 template <class S> void nncuda_Activation
 	( float * pDst, NNBufDim dimDst,
-		const float * pSrc, NNBufDim dimSrc, int nDepthwise, cudaStream_t stream )
+		const float * pSrc, NNBufDim dimSrc,
+		size_t xLeftBounds, int nDepthwise, cudaStream_t stream )
 {
+	assert( xLeftBounds < dimDst.x ) ;
 	unsigned int	nBatchSamples =
 		CalcBatchSamples
-			( (cudaSharedMemorySize/2/sizeof(float)) / dimSrc.z, dimDst.x ) ;
+			( (cudaSharedMemorySize/2/sizeof(float)) / dimSrc.z, dimDst.x - xLeftBounds ) ;
 
 	unsigned int	xThreads = (unsigned int) dimSrc.z ;
 	unsigned int	yThreads = 1 ;
@@ -101,7 +104,7 @@ template <class S> void nncuda_Activation
 	}
 
 	dim3	threads( xThreads, yThreads ) ;
-	dim3	grid( ((unsigned int) dimDst.x + yThreads - 1) / yThreads,
+	dim3	grid( ((unsigned int) (dimDst.x - xLeftBounds) + yThreads - 1) / yThreads,
 					(unsigned int) dimDst.y ) ;
 
 	assert( dimSrc.z <= cudaSharedMemorySize/2/sizeof(float) ) ;
@@ -109,7 +112,8 @@ template <class S> void nncuda_Activation
 
 	nnkernel_Activation<S>
 		<<<grid, threads, 0, stream>>>
-			( pDst, dimDst, pSrc, dimSrc, nDepthwise, xThreads, yThreads ) ;
+			( pDst, dimDst, pSrc, dimSrc,
+				(int) xLeftBounds,  nDepthwise, xThreads, yThreads ) ;
 }
 
 

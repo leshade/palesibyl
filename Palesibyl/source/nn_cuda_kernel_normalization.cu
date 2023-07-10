@@ -358,7 +358,7 @@ void Palesibyl::nncuda_CalcDistribution
 //////////////////////////////////////////////////////////////////////////////
 
 __global__ void nnkernel_Normalize
-	( float * pSample, NNBufDim dimSample,
+	( float * pSample, NNBufDim dimSample, int xSampleBounds,
 		const float * pParams,
 		const float * pMeanVar,
 		int zSampling, int xThreads, int yThreads )
@@ -370,7 +370,7 @@ __global__ void nnkernel_Normalize
 
 	const int	tx = threadIdx.x ;
 	const int	ty = threadIdx.y ;
-	const int	bx = blockIdx.x * yThreads + ty ;
+	const int	bx = blockIdx.x * yThreads + ty + xSampleBounds ;
 	const int	by = blockIdx.y ;
 
 	for ( int zBase = 0; zBase < dimSample.z; zBase += xThreads )
@@ -419,7 +419,7 @@ __global__ void nnkernel_Normalize
 }
 
 void Palesibyl::nncuda_Normalize
-	( float * pSample, NNBufDim dimSample,
+	( float * pSample, NNBufDim dimSample, size_t xSampleBounds,
 		const float * pParams,
 		const float * pMeanVar, int zSampling, cudaStream_t stream )
 {
@@ -427,13 +427,15 @@ void Palesibyl::nncuda_Normalize
 	const int	yThreads = max( min( (int) dimSample.x/2 + 1, 16 ), N_PARAM_COUNT+N_MEAN_VAR ) ;
 	assert( xThreads * yThreads <= cudaMaxThreadCount ) ;
 
+	assert( xSampleBounds < dimSample.x ) ;
 	dim3	threads( xThreads, yThreads ) ;
-	dim3	grid( (unsigned int) (dimSample.x + yThreads - 1) / yThreads,
+	dim3	grid( (unsigned int) (dimSample.x - xSampleBounds + yThreads - 1) / yThreads,
 					(unsigned int) dimSample.y ) ;
 
 	nnkernel_Normalize
 		<<<grid, threads, 0, stream>>>
-			( pSample, dimSample, pParams, pMeanVar, zSampling, xThreads, yThreads ) ;
+			( pSample, dimSample, (int) xSampleBounds,
+				pParams, pMeanVar, zSampling, xThreads, yThreads ) ;
 }
 
 

@@ -40,14 +40,14 @@ inline unsigned int CalcBatchSamples( size_t nBufCaps, size_t nDstWidth )
 //////////////////////////////////////////////////////////////////////////////
 
 template <class S, int MX> __global__ void nnkernel_Matrix
-	( float * pDst, NNBufDim dimDst,
+	( float * pDst, NNBufDim dimDst, int xLeftBounds,
 		const float * pSrc, NNBufDim dimSrc,
 		const float * pMatrix, int xMatrix, int yMatrix, size_t iMatrixBias,
 		int nDepthwise, NNSamplingParam sp, int xThreads, int yThreads )
 {
 	const int	tx = threadIdx.x ;
 	const int	ty = threadIdx.y ;
-	const int	bx0 = blockIdx.x * yThreads ;
+	const int	bx0 = blockIdx.x * yThreads + xLeftBounds ;
 	const int	bx = bx0 + ty ;
 	const int	by = blockIdx.y ;
 	const int	bi = bx + by * dimDst.x ;
@@ -181,12 +181,14 @@ template <class S> void nncuda_Matrix
 		const float * pSrc, NNBufDim dimSrc,
 		const float * pMatrix,
 		size_t xMatrix, size_t yMatrix, size_t iMatrixBias,
-		int nDepthwise, const NNSamplingParam& sp, cudaStream_t stream )
+		size_t xLeftBounds, int nDepthwise,
+		const NNSamplingParam& sp, cudaStream_t stream )
 {
+	assert( dimDst.x > xLeftBounds ) ;
 	unsigned int	nBatchSamples =
 		CalcBatchSamples
 			( (cudaSharedMemorySize/3/sizeof(float))
-				/ (min(xMatrix,maxMatrixStrideX) * sp.m_xUpScale), dimDst.x ) ;
+				/ (min(xMatrix,maxMatrixStrideX) * sp.m_xUpScale), dimDst.x - xLeftBounds ) ;
 
 	unsigned int	xThreads = (unsigned int) cudaMaxThreadCount / nBatchSamples ;
 	unsigned int	yThreads = nBatchSamples ;
@@ -196,7 +198,7 @@ template <class S> void nncuda_Matrix
 	}
 
 	dim3	threads( xThreads, yThreads ) ;
-	dim3	grid( ((unsigned int) dimDst.x + yThreads - 1) / yThreads,
+	dim3	grid( ((unsigned int) (dimDst.x - xLeftBounds) + yThreads - 1) / yThreads,
 					(unsigned int) dimDst.y ) ;
 
 	assert( min(xMatrix,maxMatrixStrideX) * yThreads * sp.m_xUpScale <= cudaSharedMemorySize/3/sizeof(float) ) ;
@@ -204,7 +206,7 @@ template <class S> void nncuda_Matrix
 
 	nnkernel_Matrix<S,maxMatrixStrideX>
 		<<<grid, threads, 0, stream>>>
-			( pDst, dimDst, pSrc, dimSrc,
+			( pDst, dimDst, (int) xLeftBounds, pSrc, dimSrc,
 				pMatrix, (int) xMatrix, (int) yMatrix, iMatrixBias,
 				nDepthwise, sp, xThreads, yThreads ) ;
 }
