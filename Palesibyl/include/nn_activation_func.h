@@ -207,7 +207,7 @@ public:
 		ser.Write( &lpSize, sizeof(lpSize) ) ;
 		ser.Write( &m_lossParam, sizeof(m_lossParam) ) ;
 		uint32_t	apSize = 0 ;
-		ser.Write( &apSize, sizeof(lpSize) ) ;
+		ser.Write( &apSize, sizeof(apSize) ) ;
 	}
 	// デシリアライズ
 	virtual void Deserialize( NNDeserializer & dsr )
@@ -217,7 +217,7 @@ public:
 		dsr.Read( &m_lossParam, min(sizeof(m_lossParam),lpSize) ) ;
 		dsr.Skip( lpSize - min(sizeof(m_lossParam),lpSize) ) ;
 		uint32_t	apSize = 0 ;
-		dsr.Read( &apSize, sizeof(lpSize) ) ;
+		dsr.Read( &apSize, sizeof(apSize) ) ;
 	}
 } ;
 

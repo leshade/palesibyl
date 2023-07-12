@@ -172,6 +172,7 @@ public:
 		extendInfoDeltaFactor			= 0x00000004,
 		extendInfoGradientFactor		= 0x00000008,
 		extendInfoDropout				= 0x00000010,
+		extendInfoActivationDepthwise	= 0x00000020,
 		extendInfoIdentity				= 0x80000000,
 	} ;
 
@@ -212,6 +213,7 @@ public:
 	NNMatrix								m_matrix ;		// 行列
 	size_t									m_bias ;		// バイアス項
 	size_t									m_depthwise ;	// 疎行列（通常の行列は 1）
+	size_t									m_depthActiv ;	// 活性化関数用出力次数パラメータ
 	float									m_deltaFactor ;	// δ逆伝播係数（レイヤー毎に調整したい場合）
 	float									m_gradFactor ;	// 学習速度係数（レイヤー毎に調整したい場合）
 	AdaptiveOptimization					m_adaOpt ;		// 勾配更新最適化法
@@ -261,7 +263,9 @@ public:
 	size_t GetBias( void ) const ;
 	// 対角化単位
 	virtual size_t GetDepthwise( void ) const ;
+	// 活性化関数出力次数パラメータ
 	virtual size_t GetActivationDepthwise( void ) const ;
+	NNPerceptron * SetActivationDepthwise( size_t nDepthwise ) ;
 	// 勾配更新最適化
 	AdaptiveOptimization GetAdaptiveOptimization( void ) const ;
 	const AdaptiveHyperparameter& GetAdaptiveHyperparameter( void ) const ;

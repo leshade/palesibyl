@@ -87,7 +87,8 @@ std::map< std::string, std::function< std::shared_ptr<NNPerceptron>() > >
 // 構築関数
 //////////////////////////////////////////////////////////////////////////////
 NNPerceptron::NNPerceptron( void )
-	: m_behavior( 0 ), m_bias( 0 ), m_depthwise( 1 ),
+	: m_behavior( 0 ), m_bias( 0 ),
+		m_depthwise( 1 ), m_depthActiv( 1 ),
 		m_deltaFactor( 1.0f ), m_gradFactor( 1.0f ),
 		m_dropout( 0.0f ), m_adaOpt(adaOptNo), m_l2reg( 0.0f )
 {
@@ -98,7 +99,8 @@ NNPerceptron::NNPerceptron
 		size_t nDepthwise, size_t nBias,
 		std::shared_ptr<NNSamplingFilter> sampler,
 		std::shared_ptr<NNActivationFunction> activation )
-	: m_behavior( 0 ), m_bias( 0 ), m_depthwise( 1 ),
+	: m_behavior( 0 ), m_bias( 0 ),
+		m_depthwise( 1 ), m_depthActiv( 1 ),
 		m_deltaFactor( 1.0f ), m_gradFactor( 1.0f ),
 		m_dropout( 0.0f ), m_adaOpt(adaOptNo),m_l2reg( 0.0f )
 {
@@ -110,6 +112,7 @@ NNPerceptron::NNPerceptron( const NNPerceptron& nnp )
 		m_behavior( 0 ),
 		m_bias( nnp.m_bias ),
 		m_depthwise( nnp.m_depthwise ),
+		m_depthActiv( nnp.m_depthActiv ),
 		m_deltaFactor( nnp.m_deltaFactor ),
 		m_gradFactor( nnp.m_gradFactor ),
 		m_adaOpt( nnp.m_adaOpt ),
@@ -133,7 +136,11 @@ void NNPerceptron::Create
 	m_matrix.Create( nDstCount, nSrcCount + nBias ) ;
 	m_matrix.RandomizeNormalDist( 0.0f, s ) ;
 	m_bias = nBias ;
-	m_depthwise = (nDepthwise != 0) ? nDepthwise : m_depthwise ;
+	if ( nDepthwise != 0 )
+	{
+		m_depthwise = nDepthwise ;
+		m_depthActiv = nDepthwise ;
+	}
 
 	Specialize( ) ;
 
@@ -204,9 +211,17 @@ size_t NNPerceptron::GetDepthwise( void ) const
 	return	m_depthwise ;
 }
 
+// 活性化関数出力次数パラメータ
+//////////////////////////////////////////////////////////////////////////////
 size_t NNPerceptron::GetActivationDepthwise( void ) const
 {
-	return	m_depthwise ;
+	return	m_depthActiv ;
+}
+
+NNPerceptron * NNPerceptron::SetActivationDepthwise( size_t nDepthwise )
+{
+	m_depthActiv = nDepthwise ;
+	return	this ;
 }
 
 // 勾配更新最適化
@@ -387,12 +402,14 @@ void NNPerceptron::Serialize( NNSerializer& ser )
 							| extendInfoDeltaFactor
 							| extendInfoGradientFactor
 							| extendInfoDropout
+							| extendInfoActivationDepthwise
 							| extendInfoIdentity ;
 	uint32_t	adaOpt = (uint32_t) m_adaOpt ;
 	float		l2reg = m_l2reg ;
 	float		delta = m_deltaFactor ;
 	float		grad = m_gradFactor ;
 	float		dropout = m_dropout ;
+	uint32_t	depthActiv = (uint32_t) m_depthActiv ;
 	uint32_t	lenId = (uint32_t) m_id.length() ;
 	uint32_t	sizeChar = sizeof(char) ;
 	ser.Write( &exFlags, sizeof(uint32_t) ) ;
@@ -402,6 +419,7 @@ void NNPerceptron::Serialize( NNSerializer& ser )
 	ser.Write( &delta, sizeof(delta) ) ;
 	ser.Write( &grad, sizeof(grad) ) ;
 	ser.Write( &dropout, sizeof(dropout) ) ;
+	ser.Write( &depthActiv, sizeof(depthActiv) ) ;
 	ser.Write( &lenId, sizeof(lenId) ) ;
 	ser.Write( &sizeChar, sizeof(sizeChar) ) ;
 	if ( lenId > 0 )
@@ -513,6 +531,12 @@ bool NNPerceptron::Deserialize( NNDeserializer & dsr )
 					float	dropout = 0.0f ;
 					dsr.Read( &dropout, sizeof(dropout) ) ;
 					m_dropout = dropout ;
+				}
+				if ( exFlags & extendInfoActivationDepthwise )
+				{
+					uint32_t	depthActiv = 1 ;
+					dsr.Read( &depthActiv, sizeof(depthActiv) ) ;
+					m_depthActiv = (size_t) depthActiv ;
 				}
 				if ( exFlags & extendInfoIdentity )
 				{
@@ -830,7 +854,7 @@ void NNPerceptron::PrepareBuffer
 
 	NNBufDim	dimOut = CalcOutputDim( dimSrc ) ;
 	bufThis.bufOutput.Allocate( dimOut.x, dimOut.y, dimOut.z, 0, flagsOutBuf ) ;
-	bufThis.bufDelay.Allocate( dimOut.x, dimOut.y, dimOut.z, 0, cudaDevFlags ) ;
+	bufThis.bufDelay.Allocate( dimOut.x, dimOut.y, dimOut.z, 0, flagsOutBuf ) ;
 
 	if ( m_normalizer != nullptr )
 	{
