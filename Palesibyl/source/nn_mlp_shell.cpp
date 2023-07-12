@@ -330,6 +330,7 @@ void NNMLPShell::DoPrediction( NNMLPShell::Iterator& iter )
 				m_mlp.ShiftBufferWithStreaming( bufArrays, xShift ) ;
 
 				// 予測
+				bufArrays.xBoundary = dimInShape.x - xShift ;
 				pOutput = m_mlp.Prediction( bufArrays, bufStream, false ) ;
 
 				if ( pOutput != nullptr )
