@@ -538,6 +538,10 @@ bool NNPerceptron::Deserialize( NNDeserializer & dsr )
 					dsr.Read( &depthActiv, sizeof(depthActiv) ) ;
 					m_depthActiv = (size_t) depthActiv ;
 				}
+				else
+				{
+					m_depthActiv = m_depthwise ;
+				}
 				if ( exFlags & extendInfoIdentity )
 				{
 					uint32_t	lenId = 0, sizeChar = sizeof(char) ;
