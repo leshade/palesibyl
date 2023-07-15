@@ -4,12 +4,19 @@
 #include <locale>
 #include <atomic>
 
-#if	defined(_WIN32) || defined(_WIN64) || defined(WIN32) || defined(WIN64)
-#define	__USE_GDIPLUS__
-#include <gdiplus.h>
-#pragma comment(lib, "gdiplus.lib")
+#if	!defined(__USE_GDIPLUS__) && !defined(__USE_OPENCV__)
+	#if	defined(_WIN32) || defined(_WIN64) || defined(WIN32) || defined(WIN64)
+		#define	__USE_GDIPLUS__
+	#else
+		#define	__USE_OPENCV__
+	#endif
+#endif
+
+#ifdef	__USE_GDIPLUS__
+	#include <gdiplus.h>
+	#pragma comment(lib, "gdiplus.lib")
 #else
-#error no image codec.
+	#include <opencv2/opencv.hpp>
 #endif
 
 using namespace Palesibyl ;
@@ -109,8 +116,44 @@ std::shared_ptr<NNBuffer>
 
 	return	pData ;
 
+#elif defined(__USE_OPENCV__)
+	cv::Mat	image = cv::imread( path.string().c_str() ) ;
+	if ( image.empty() )
+	{
+		return	nullptr ;
+	}
+	const size_t	nWidth = (size_t) image.size().width  ;
+	const size_t	nHeight = (size_t) image.size().height ;
+	const size_t	nChannels = (size_t) image.channels() ;
+	const size_t	nPixelStride = (size_t) image.elemSize1() * nChannels ;
+	const int		nLineStride = (int) image.step ;
+	switch ( image.type() )
+	{
+	case	CV_8UC1:
+	case	CV_8UC3:
+	case	CV_8UC4:
+		break ;
+	default:
+		return	nullptr ;
+	}
+	if ( nReqDepth == 0 )
+	{
+		nReqDepth = (size_t) nChannels ;
+	}
+	std::shared_ptr<NNBuffer>	pData = std::make_shared<NNBuffer>() ;
+	pData->Create( nWidth, nHeight, nReqDepth ) ;
+	pData->CopyFromImage
+		( (const uint8_t*) image.data,
+			nWidth, nHeight,
+			((nReqDepth > nChannels) ? nChannels : nReqDepth),
+			nPixelStride, nLineStride ) ;
+
+	return	pData ;
+
 #else
+	#error no image codec
 	return	nullptr ;
+
 #endif
 }
 
@@ -250,8 +293,46 @@ bool NNImageCodec::SaveToFile
 	}
 	return	true ;
 
+#elif defined(__USE_OPENCV__)
+	// ピクセルフォーマット
+	const NNBufDim	dimBuf = bufOutput.GetSize() ;
+	size_t			nChannels = dimBuf.z ;
+	int				type ;
+	switch ( nChannels )
+	{
+	case	0:
+		return	false ;
+
+	case	1:
+	case	2:
+		type = CV_8UC1 ;
+		nChannels = 1 ;
+		break ;
+
+	case	3:
+		type = CV_8UC3 ;
+		break ;
+
+	case	4:
+	default:
+		type = CV_8UC4 ;
+		nChannels = 4 ;
+		break ;
+	}
+
+	// cv::Mat に変換
+	cv::Mat	image( (int) dimBuf.y, (int) dimBuf.x, type ) ;
+	bufOutput.CopyToImage
+		( (uint8_t*) image.data,
+			dimBuf.x, dimBuf.y, nChannels,
+			nChannels, (int) image.step ) ;
+
+	// 保存
+	return	cv::imwrite( path.string().c_str(), image ) ;
+
 #else
-	return	nullptr ;
+	#error no image codec
+	return	false ;
 #endif
 }
 
