@@ -1,5 +1,13 @@
 ﻿
 #include "nn_stream_buffer.h"
+#include <string.h>
+
+#ifdef	min
+	#undef	min
+#endif
+#ifdef	max
+	#undef	max
+#endif
 
 using namespace Palesibyl ;
 
@@ -52,7 +60,7 @@ void NNStreamBuffer::FillEmpty( float fill )
 //////////////////////////////////////////////////////////////////////////////
 size_t NNStreamBuffer::Shift( size_t xCount )
 {
-	const size_t	xShift = min( m_xFilled, xCount ) ;
+	const size_t	xShift = std::min( m_xFilled, xCount ) ;
 	if ( xShift > 0 )
 	{
 		assert( m_xFilled <= m_dimSize.x ) ;
@@ -89,9 +97,9 @@ size_t NNStreamBuffer::Stream( const NNBuffer& bufSrc, size_t xSrc, size_t xCoun
 	{
 		return	0 ;
 	}
-	NNBufDim	dimCopy( min( xCount, m_dimSize.x ),
-							min( dimSrc.y, m_dimSize.y ),
-							min( dimSrc.z, m_dimSize.z ) ) ;
+	NNBufDim	dimCopy( std::min( xCount, m_dimSize.x ),
+							std::min( dimSrc.y, m_dimSize.y ),
+							std::min( dimSrc.z, m_dimSize.z ) ) ;
 	if ( xSrc + xCount > dimSrc.x )
 	{
 		dimCopy.x = dimSrc.x - xSrc ;

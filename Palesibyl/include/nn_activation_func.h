@@ -214,8 +214,8 @@ public:
 	{
 		uint32_t	lpSize = sizeof(m_lossParam) ;
 		dsr.Read( &lpSize, sizeof(lpSize) ) ;
-		dsr.Read( &m_lossParam, min(sizeof(m_lossParam),lpSize) ) ;
-		dsr.Skip( lpSize - min(sizeof(m_lossParam),lpSize) ) ;
+		dsr.Read( &m_lossParam, __min(sizeof(m_lossParam),lpSize) ) ;
+		dsr.Skip( lpSize - __min(sizeof(m_lossParam),lpSize) ) ;
 		uint32_t	apSize = 0 ;
 		dsr.Read( &apSize, sizeof(apSize) ) ;
 	}

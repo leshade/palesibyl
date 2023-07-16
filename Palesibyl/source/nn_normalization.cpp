@@ -2,6 +2,13 @@
 #include "nn_normalization.h"
 #include "nn_cuda_kernel.h"
 
+#ifdef	min
+	#undef	min
+#endif
+#ifdef	max
+	#undef	max
+#endif
+
 using namespace Palesibyl ;
 
 
@@ -106,7 +113,7 @@ void NNNormalizationFilter::CreateFilter( size_t zChannels )
 
 	for ( size_t i = 0; i < nChannel; i ++ )
 	{
-		m_params.at(i).scale = max( dist(engine), s * 0.1f ) ;
+		m_params.at(i).scale = std::max( dist(engine), s * 0.1f ) ;
 		m_params.at(i).shift = 0.0f ;
 	}
 
@@ -184,10 +191,10 @@ void NNNormalizationFilter::PrepareWorkBuf
 		for ( size_t i = 0; i < m_aggregation.size(); i ++ )
 		{
 			const Aggregation&	aggregation = m_aggregation.at(i) ;
-			const float			n = max( aggregation.num, 1.0e-7f ) ;
+			const float			n = std::max( aggregation.num, 1.0e-7f ) ;
 			const float			mean = aggregation.sum / n ;
 			pVariance[0] = mean ;
-			pVariance[1] = 1.0f / sqrt( max( aggregation.sum2 / n - mean * mean, 1.0e-10f ) ) ;
+			pVariance[1] = 1.0f / sqrt( std::max( aggregation.sum2 / n - mean * mean, 1.0e-10f ) ) ;
 			pVariance += 2 ;
 		}
 		bufWork.bufVariance.CheckOverun() ;
@@ -268,9 +275,9 @@ void NNNormalizationFilter::cpuNormalize
 	{
 		const Aggregation&	aggregation = m_aggregation.at(i) ;
 		MeanAndVariance&	mav = bufWork.vecVariance.at(i) ;
-		const float			n = max( aggregation.num, 1.0e-7f ) ;
+		const float			n = std::max( aggregation.num, 1.0e-7f ) ;
 		mav.mean = aggregation.sum / n ;
-		mav.rcpvar = 1.0f / sqrt( max( aggregation.sum2 / n
+		mav.rcpvar = 1.0f / sqrt( std::max( aggregation.sum2 / n
 										- mav.mean * mav.mean, 1.0e-10f ) ) ;
 	}
 
@@ -616,7 +623,7 @@ void NNNormalizationFilter::AddGradient
 {
 	assert( m_params.size() >= bufGrad.vecGradients.size() ) ;
 
-	const float	rate = min( m_hyparam.delta * deltaRate + m_hyparam.deltac, 0.1f ) ;
+	const float	rate = std::min( m_hyparam.delta * deltaRate + m_hyparam.deltac, 0.1f ) ;
 
 	// パラメータ更新
 	for ( size_t i = 0; i < bufGrad.vecGradients.size(); i ++ )
@@ -707,8 +714,8 @@ bool NNNormalizationFilter::Deserialize( NNDeserializer & dsr )
 	//
 	uint32_t	nHyparamSize = sizeof(m_hyparam) ;
 	dsr.Read( &nHyparamSize, sizeof(nHyparamSize) ) ;
-	dsr.Read( &m_hyparam, min(nHyparamSize,sizeof(m_hyparam)) ) ;
-	dsr.Skip( nHyparamSize - min(nHyparamSize,sizeof(m_hyparam)) ) ;
+	dsr.Read( &m_hyparam, std::min((size_t)nHyparamSize,sizeof(m_hyparam)) ) ;
+	dsr.Skip( nHyparamSize - std::min((size_t)nHyparamSize,sizeof(m_hyparam)) ) ;
 	//
 	uint32_t	nIndices = 0 ;
 	dsr.Read( &nIndices, sizeof(nIndices) ) ;

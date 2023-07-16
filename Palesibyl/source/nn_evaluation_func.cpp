@@ -81,7 +81,7 @@ double NNEvaluationR2Score::Evaluate
 	const NNBufDim	dimPredicted = bufPredicted.GetSize() ;
 	const NNBufDim	dimObserved = bufObserved.GetSize() ;
 	assert( dimObserved.n * dimObserved.z == dimPredicted.n * dimPredicted.z ) ;
-	const size_t	nCount = min( dimObserved.n * dimObserved.z,
+	const size_t	nCount = __min( dimObserved.n * dimObserved.z,
 									dimPredicted.n * dimPredicted.z ) ;
 	if ( nCount == 0 )
 	{
@@ -105,7 +105,7 @@ double NNEvaluationR2Score::Evaluate
 		error += e * e ;
 		dispersion += d * d ;
 	}
-	return	1.0 - error / max( dispersion, 1.0e-8 ) ;
+	return	1.0 - error / __max( dispersion, 1.0e-8 ) ;
 }
 
 
@@ -137,7 +137,7 @@ double NNEvaluationArgmaxAccuracy::Evaluate
 	const NNBufDim	dimObserved = bufObserved.GetSize() ;
 	assert( dimObserved.n == dimPredicted.n ) ;
 	assert( dimPredicted.z > argmaxIndex ) ;
-	const size_t	nCount = min( dimObserved.n, dimPredicted.n ) ;
+	const size_t	nCount = __min( dimObserved.n, dimPredicted.n ) ;
 	if ( nCount == 0 )
 	{
 		return	0.0 ;

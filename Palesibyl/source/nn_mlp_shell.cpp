@@ -3,15 +3,51 @@
 #include "nn_shell_image_file.h"
 
 #include <random>
+
+#include <stdarg.h>
+#include <stdio.h>
+
+#if	defined(_WIN32) || defined(_WIN64) || defined(WIN32) || defined(WIN64)
 #include <conio.h>
 
-using namespace Palesibyl ;
+#else
+#include <unistd.h>
+#include <termios.h>
 
+inline bool _kbhit(void)
+{
+	fd_set	fds ;
+	timeval	tv ;
+
+	FD_ZERO( &fds ) ;
+	FD_SET( 0, &fds ) ;
+
+	tv.tv_sec = 0 ;
+	tv.tv_usec = 0 ;
+
+	int	r = select( 1, &fds, nullptr, nullptr, &tv ) ;
+	return	(r != -1) && FD_ISSET( 0, &fds ) ;
+}
+
+inline int _getch(void)
+{
+	return	getchar() ;
+}
+
+#endif
+
+using namespace Palesibyl ;
 
 
 //////////////////////////////////////////////////////////////////////////////
 // 処理ラッパ基底
 //////////////////////////////////////////////////////////////////////////////
+
+#if	defined(_WIN32) || defined(_WIN64) || defined(WIN32) || defined(WIN64)
+static DWORD	s_dwConMode ;
+#else
+static termios	s_termiosCooked ;
+#endif
 
 // 関連初期化処理
 //////////////////////////////////////////////////////////////////////////////
@@ -21,8 +57,16 @@ void NNMLPShell::StaticInitialize( void )
 	HANDLE	hStd = ::GetStdHandle( STD_OUTPUT_HANDLE ) ;
 	DWORD	dwMode = 0 ;
 	::GetConsoleMode( hStd, &dwMode ) ;
+	s_dwConMode = dwMode ;
 	dwMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING ;
 	::SetConsoleMode( hStd, dwMode ) ;
+#else
+	tcgetattr( STDIN_FILENO, &s_termiosCooked ) ;
+
+	termios termiosRaw ;
+	termiosRaw = s_termiosCooked ;
+	cfmakeraw( &termiosRaw ) ;
+	tcsetattr( STDIN_FILENO, 0, &termiosRaw ) ;
 #endif
 
 	NNNormalizationFilter::InitMake() ;
@@ -37,6 +81,13 @@ void NNMLPShell::StaticInitialize( void )
 //////////////////////////////////////////////////////////////////////////////
 void NNMLPShell::StaticRelase( void )
 {
+#if defined(_WIN32) || defined(_WIN64) || defined(WIN32) || defined(WIN64)
+	HANDLE	hStd = ::GetStdHandle( STD_OUTPUT_HANDLE ) ;
+	::SetConsoleMode( hStd, s_dwConMode ) ;
+#else
+	tcsetattr( STDIN_FILENO, 0, &s_termiosCooked ) ;
+#endif
+
 	NNImageCodec::ReleaseLib() ;
 }
 
@@ -63,7 +114,7 @@ bool NNMLPShell::LoadModel( const char * pszFilePath )
 	}
 	catch ( const std::exception& e )
 	{
-		TRACE( "exception at LoadModel: %s\n", e.what() ) ;
+		TRACE( "exception at LoadModel: %s\r\n", e.what() ) ;
 		return	false ;
 	}
 }
@@ -84,7 +135,7 @@ bool NNMLPShell::SaveModel( const char * pszFilePath )
 	}
 	catch ( const std::exception& e )
 	{
-		TRACE( "exception at SaveModel: %s\n", e.what() ) ;
+		TRACE( "exception at SaveModel: %s\r\n", e.what() ) ;
 		return	false ;
 	}
 	return	true ;
@@ -131,7 +182,7 @@ void NNMLPShell::DoLearning
 {
 	CudaErrorHandler	cudaError
 		( [this](cudaError_t error,const char* pszError)
-			{ Print( "\nCUDA error: %08X : %s\n", error, pszError ) ; } ) ;
+			{ Print( "\r\nCUDA error: %08X : %s\r\n", error, pszError ) ; } ) ;
 
 	// 学習用バッファ配列を準備
 	uint32_t	flagsBuf = NNMultiLayerPerceptron::bufferForLearning ;
@@ -154,7 +205,7 @@ void NNMLPShell::DoLearning
 
 		if ( context.flagCanceled )
 		{
-			Print( "\ncanceled.\n" ) ;
+			Print( "\r\ncanceled.\r\n" ) ;
 			return ;
 		}
 	}
@@ -170,7 +221,7 @@ void NNMLPShell::DoLearningGAN
 {
 	CudaErrorHandler	cudaError
 		( [this](cudaError_t error,const char* pszError)
-			{ Print( "\nCUDA error: %08X : %s\n", error, pszError ) ; } ) ;
+			{ Print( "\r\nCUDA error: %08X : %s\r\n", error, pszError ) ; } ) ;
 
 	// 学習用バッファ配列を準備
 	LearningContext	lcClassifier ;
@@ -206,7 +257,7 @@ void NNMLPShell::DoLearningGAN
 	for ( lpiGAN.iGANLoop = 0; lpiGAN.iGANLoop < nGANLoop; lpiGAN.iGANLoop ++ )
 	{
 		// 分類器の訓練
-		Print( "\n%d-th training of classifier.\n", lpiGAN.iGANLoop + 1 ) ;
+		Print( "\r\n%d-th training of classifier.\r\n", lpiGAN.iGANLoop + 1 ) ;
 		lpiClassifier.iGANLoop = lpiGAN.iGANLoop ;
 
 		for ( size_t iLoopEpoch = 0; iLoopEpoch < param.nEpochCount; iLoopEpoch ++ )
@@ -218,14 +269,14 @@ void NNMLPShell::DoLearningGAN
 
 			if ( lcClassifier.flagCanceled )
 			{
-				Print( "\ncanceled.\n" ) ;
+				Print( "\r\ncanceled.\r\n" ) ;
 				return ;
 			}
 		}
 		mlpClassifier.PreapreForMiniBatch( lcClassifier, false ) ;
 
 		// 生成器の訓練
-		Print( "\n%d-th training of generator.\n", lpiGAN.iGANLoop + 1 ) ;
+		Print( "\r\n%d-th training of generator.\r\n", lpiGAN.iGANLoop + 1 ) ;
 		int	iTraining = 0 ;
 		do
 		{
@@ -238,7 +289,7 @@ void NNMLPShell::DoLearningGAN
 
 				if ( lcGAN.flagCanceled )
 				{
-					Print( "\ncanceled.\n" ) ;
+					Print( "\r\ncanceled.\r\n" ) ;
 					return ;
 				}
 			}
@@ -254,7 +305,7 @@ void NNMLPShell::DoPrediction( NNMLPShell::Iterator& iter )
 {
 	CudaErrorHandler	cudaError
 		( [this](cudaError_t error,const char* pszError)
-			{ Print( "\nCUDA error: %08X : %s\n", error, pszError ) ; } ) ;
+			{ Print( "\r\nCUDA error: %08X : %s\r\n", error, pszError ) ; } ) ;
 
 	bool	flagCanceled = false ;
 	while ( !flagCanceled )
@@ -264,7 +315,7 @@ void NNMLPShell::DoPrediction( NNMLPShell::Iterator& iter )
 		{
 			break ;
 		}
-		Print( "%s -> \x1b[s", iter.GetSourcePath().c_str() ) ;
+		Print( "\r%s -> \x1b[s", iter.GetSourcePath().c_str() ) ;
 
 		NNMultiLayerPerceptron::BufferArrays	bufArrays ;
 		const uint32_t	flagsBuf = 0 ;
@@ -302,7 +353,7 @@ void NNMLPShell::DoPrediction( NNMLPShell::Iterator& iter )
 			pStreamOut->Create( dimOutput ) ;
 
 			// 始めの入力処理
-			const size_t	xLead = min( dimInShape.x, dimSource.x ) ;
+			const size_t	xLead = __min( dimInShape.x, dimSource.x ) ;
 			bufStream.Stream( *pSource, 0, xLead ) ;
 			//
 			size_t	nPreCount = m_mlp.CountOfPrePrediction() ;
@@ -325,7 +376,7 @@ void NNMLPShell::DoPrediction( NNMLPShell::Iterator& iter )
 					xNextSrc < dimSource.x; xNextSrc += dimInUnit.x )
 			{
 				// バッファストリーミング
-				const size_t	xNextInput = min( dimSource.x - xNextSrc, dimInUnit.x ) ;
+				const size_t	xNextInput = __min( dimSource.x - xNextSrc, dimInUnit.x ) ;
 				const size_t	xShift = bufStream.Stream( *pSource, xNextSrc, xNextInput ) ;
 				m_mlp.ShiftBufferWithStreaming( bufArrays, xShift ) ;
 
@@ -381,20 +432,20 @@ void NNMLPShell::DoPrediction( NNMLPShell::Iterator& iter )
 			Print( "%s", iter.GetOutputPath().c_str() ) ;
 			if ( iter.OutputPrediction( *pOutput ) )
 			{
-				Print( " saved.\n" );
+				Print( " saved.\r\n" );
 			}
 			else
 			{
-				Print( " failed to save.\n" );
+				Print( " failed to save.\r\n" );
 			}
 		}
 		else
 		{
-			Print( "failed\n" );
+			Print( "failed\r\n" );
 		}
 		if ( flagCanceled || IsCancel() )
 		{
-			Print( "canceled.\n" ) ;
+			Print( "canceled.\r\n" ) ;
 			break ;
 		}
 	}
@@ -935,46 +986,46 @@ NNMultiLayerPerceptron::VerifyError
 	switch ( verfResult.verfError )
 	{
 	case	NNMultiLayerPerceptron::outOfRangeInputLayer:
-		Print( "\nInput to layer[%d] (connection[%d]) out of range.\n\x1b[s",
+		Print( "\r\nInput to layer[%d] (connection[%d]) out of range.\r\n\x1b[s",
 				(int) verfResult.iLayer, (int) verfResult.iConnection ) ;
 		break ;
 	case	NNMultiLayerPerceptron::mustBeFirstInputLayer:
-		Print( "Sampler is used that must be an input layer in layer[%d].\n\x1b[s",
+		Print( "Sampler is used that must be an input layer in layer[%d].\r\n\x1b[s",
 				(int) verfResult.iLayer ) ;
 		break ;
 	case	NNMultiLayerPerceptron::mustBeLastLayer:
-		Print( "Activation function is used that must be the final layer in layer[%d].\n\x1b[s",
+		Print( "Activation function is used that must be the final layer in layer[%d].\r\n\x1b[s",
 				(int) verfResult.iLayer ) ;
 		break ;
 	case	NNMultiLayerPerceptron::mustNotBeLastLayer:
-		Print( "Activation function is used that cannot be used in the final layer [%d].\n\x1b[s",
+		Print( "Activation function is used that cannot be used in the final layer [%d].\r\n\x1b[s",
 				(int) verfResult.iLayer ) ;
 		break ;
 	case	NNMultiLayerPerceptron::mismatchInputSize:
-		Print( "\nInput size to layer[%d] (connection[%d]) is mismatched.\n\x1b[s",
+		Print( "\r\nInput size to layer[%d] (connection[%d]) is mismatched.\r\n\x1b[s",
 				(int) verfResult.iLayer, (int) verfResult.iConnection ) ;
 		break ;
 	case	NNMultiLayerPerceptron::mismatchInputChannel:
-		Print( "\nInput channel count to layer[%d] is mismatched.\n\x1b[s",
+		Print( "\r\nInput channel count to layer[%d] is mismatched.\r\n\x1b[s",
 				(int) verfResult.iLayer ) ;
 		break ;
 	case	NNMultiLayerPerceptron::mismatchSourceSize:
-		Print( "\nSource data size is mismatched.\n\x1b[s" ) ;
+		Print( "\r\nSource data size is mismatched.\r\n\x1b[s" ) ;
 		break ;
 	case	NNMultiLayerPerceptron::mismatchSourceChannel:
-		Print( "\nSource channel count is mismatched.\n\x1b[s" ) ;
+		Print( "\r\nSource channel count is mismatched.\r\n\x1b[s" ) ;
 		break ;
 	case	NNMultiLayerPerceptron::mismatchTeachingSize:
-		Print( "\nTeaching data size is mismatched.\n\x1b[s" ) ;
+		Print( "\r\nTeaching data size is mismatched.\r\n\x1b[s" ) ;
 		break ;
 	case	NNMultiLayerPerceptron::mismatchTeachingChannel:
-		Print( "\nTeaching data channel count is mismatched.\n\x1b[s" ) ;
+		Print( "\r\nTeaching data channel count is mismatched.\r\n\x1b[s" ) ;
 		break ;
 	case	NNMultiLayerPerceptron::lowCudaMemory:
-		Print( "\nInsufficient CUDA memory.\n\x1b[s" ) ;
+		Print( "\r\nInsufficient CUDA memory.\r\n\x1b[s" ) ;
 		break ;
 	case	NNMultiLayerPerceptron::tooHugeMatrixForCuda:
-		Print( "\nMatrix size too huge to run in CUDA.\n\x1b[s" ) ;
+		Print( "\r\nMatrix size too huge to run in CUDA.\r\n\x1b[s" ) ;
 		break ;
 	}
 	return	verfResult.verfError ;
@@ -1068,7 +1119,7 @@ void NNMLPShell::OnLearningProgress
 		break ;
 
 	case	learningEndEpoch:
-		Print( "validation loss = %f, rate = %f\x1b[0K\n",
+		Print( "validation loss = %f, rate = %f\x1b[0K\r\n",
 						lpi.lossValid, lpi.lossValid/lpi.lossLearn ) ;
 		break ;
 	}
@@ -1077,24 +1128,24 @@ void NNMLPShell::OnLearningProgress
 	case	learningStartMiniBatch:
 	case	learningOneData:
 	case	learningValidation:
-		Print( "\x1b[u" ) ;
+		Print( "\r\x1b[u" ) ;
 		break ;
 
 	case	learningEndMiniBatch:
 		if ( m_config.flagsBehavior & behaviorLineFeedByMiniBatch )
 		{
-			Print( "\n\x1b[s" ) ;
+			Print( "\r\n\x1b[s" ) ;
 		}
 		else
 		{
-			Print( "\x1b[u" ) ;
+			Print( "\r\x1b[u" ) ;
 		}
 		break ;
 
 	case	learningEndSubLoop:
 		if ( !(m_config.flagsBehavior & behaviorLineFeedByMiniBatch) )
 		{
-			Print( "\n\x1b[s" ) ;
+			Print( "\r\n\x1b[s" ) ;
 		}
 		break ;
 	}
@@ -1130,6 +1181,7 @@ void NNMLPShell::Print( const char * pszFormat, ... ) const
 	va_list	vl ;
 	va_start( vl, pszFormat ) ;
 	vprintf( pszFormat, vl ) ;
+	fflush( stdout ) ;
 }
 
 // 処理中断
@@ -1941,7 +1993,7 @@ void NNMLPShellGANIterator::ResetIterator( void )
 	assert( m_pClassifier != nullptr ) ;
 
 	m_classes.resize
-		( max(m_pClassifier->GetClassCount()
+		( __max(m_pClassifier->GetClassCount()
 				- NNMLPShell::Classifier::classFirstIndex, 0) ) ;
 	//
 	for ( size_t i = 0; i < m_classes.size(); i ++ )

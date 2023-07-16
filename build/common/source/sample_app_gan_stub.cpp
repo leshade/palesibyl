@@ -1,5 +1,6 @@
 ﻿
 #include "sample_app_gan_stub.h"
+#include <string.h>
 
 
 // エントリポイント
@@ -103,31 +104,31 @@ bool PalesibylApp::ParseArgumentAt( int& iArg, int nArgs, char * pszArgs[] )
 //////////////////////////////////////////////////////////////////////////////
 int PalesibylApp::RunHelp( void )
 {
-	std::cout << "usage: [options]..." << std::endl ;
-	std::cout << "option;" << std::endl ;
-	std::cout << "/l <mode-file>    : 学習を実行します" << std::endl ;
-	std::cout << "/p <mode-file>    : 予測を実行します" << std::endl ;
-	std::cout << "/cuda             : CUDA を利用します" << std::endl ;
-	std::cout << "/clsf <file>      : 分類器モデルファイル名を指定します" << std::endl ;
-	std::cout << "/ganloop <count>  : GAN ループ回数を指定します" << std::endl ;
-	std::cout << "/loop <count>     : 学習ループ回数を指定します" << std::endl ;
-	std::cout << "/subloop <count>  : ミニバッチの反復回数を指定します" << std::endl ;
-	std::cout << "/batch <count>    : ミニバッチサイズを指定します" << std::endl ;
-	std::cout << "/delta <rate>[,<end-rate>]" << std::endl ;
-	std::cout << "                  : 学習係数を指定します" << std::endl ;
-	std::cout << "/thread <count>   : 最大のスレッド数を指定します" << std::endl ;
-	std::cout << "/batch_thread <count>" << std::endl ;
-	std::cout << "                  : ミニバッチの並列スレッド数を指定します" << std::endl ;
-	std::cout << "/log <csv-file>   : 学習ログファイルを出力します" << std::endl ;
-	std::cout << "/lgrd             : 学習ログにレイヤー毎の勾配ノルムを出力します" << std::endl ;
-	std::cout << "/tio <image-file> : 訓練画像の予測をミニバッチ毎に出力します" << std::endl ;
-	std::cout << "/vio <image-file> : 検証用画像の予測を逐次出力します" << std::endl ;
-	std::cout << "/ndo              : ドロップアウトは行わない" << std::endl ;
-	std::cout << "/nlfb             : ミニバッチ毎に進捗表示を改行しない" << std::endl ;
-	std::cout << "/pbs              : 学習中間バッファのサイズを表示します" << std::endl ;
-	std::cout << "/cubs             : 学習中間 CUDA バッファのサイズを表示します" << std::endl ;
+	std::cout << "\rusage: [options]...\r" << std::endl ;
+	std::cout << "option;\r" << std::endl ;
+	std::cout << "/l <mode-file>    : 学習を実行します\r" << std::endl ;
+	std::cout << "/p <mode-file>    : 予測を実行します\r" << std::endl ;
+	std::cout << "/cuda             : CUDA を利用します\r" << std::endl ;
+	std::cout << "/clsf <file>      : 分類器モデルファイル名を指定します\r" << std::endl ;
+	std::cout << "/ganloop <count>  : GAN ループ回数を指定します\r" << std::endl ;
+	std::cout << "/loop <count>     : 学習ループ回数を指定します\r" << std::endl ;
+	std::cout << "/subloop <count>  : ミニバッチの反復回数を指定します\r" << std::endl ;
+	std::cout << "/batch <count>    : ミニバッチサイズを指定します\r" << std::endl ;
+	std::cout << "/delta <rate>[,<end-rate>]\r" << std::endl ;
+	std::cout << "                  : 学習係数を指定します\r" << std::endl ;
+	std::cout << "/thread <count>   : 最大のスレッド数を指定します\r" << std::endl ;
+	std::cout << "/batch_thread <count>\r" << std::endl ;
+	std::cout << "                  : ミニバッチの並列スレッド数を指定します\r" << std::endl ;
+	std::cout << "/log <csv-file>   : 学習ログファイルを出力します\r" << std::endl ;
+	std::cout << "/lgrd             : 学習ログにレイヤー毎の勾配ノルムを出力します\r" << std::endl ;
+	std::cout << "/tio <image-file> : 訓練画像の予測をミニバッチ毎に出力します\r" << std::endl ;
+	std::cout << "/vio <image-file> : 検証用画像の予測を逐次出力します\r" << std::endl ;
+	std::cout << "/ndo              : ドロップアウトは行わない\r" << std::endl ;
+	std::cout << "/nlfb             : ミニバッチ毎に進捗表示を改行しない\r" << std::endl ;
+	std::cout << "/pbs              : 学習中間バッファのサイズを表示します\r" << std::endl ;
+	std::cout << "/cubs             : 学習中間 CUDA バッファのサイズを表示します\r" << std::endl ;
 	std::cout << std::endl ;
-	std::cout << "※学習／予測処理は ESC キーで中断できます" << std::endl ;
+	std::cout << "※学習／予測処理は ESC キーで中断できます\r" << std::endl ;
 	std::cout << std::endl ;
 	std::cout << s_pszSpecificDescription ;
 	return	0 ;
@@ -171,7 +172,7 @@ int PalesibylApp::RunLearning( void )
 	{
 		if ( !m_shell.MakeOutputCSV( m_strLearnLogFile.c_str() ) )
 		{
-			std::cout << m_strLearnLogFile << " を開けませんでした" << std::endl ;
+			std::cout << m_strLearnLogFile << " を開けませんでした\r" << std::endl ;
 		}
 	}
 
@@ -184,11 +185,11 @@ int PalesibylApp::RunLearning( void )
 	// モデル保存
 	if ( !m_shell.SaveModel( m_strModelFile.c_str() ) )
 	{
-		std::cout << m_strModelFile << " への書き出しに失敗しました" << std::endl ;
+		std::cout << m_strModelFile << " への書き出しに失敗しました\r" << std::endl ;
 	}
 	if ( !m_classifier.SaveModel( m_strClassModelFile.c_str() ) )
 	{
-		std::cout << m_strClassModelFile << " への書き出しに失敗しました" << std::endl ;
+		std::cout << m_strClassModelFile << " への書き出しに失敗しました\r" << std::endl ;
 	}
 	return	0 ;
 }

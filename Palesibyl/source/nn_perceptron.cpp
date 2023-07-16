@@ -132,7 +132,7 @@ void NNPerceptron::Create
 		std::shared_ptr<NNSamplingFilter> sampler,
 		std::shared_ptr<NNActivationFunction> activation )
 {
-	float	s = (float) sqrt( 2.0f / (float) max(nSrcCount+nDstCount,1) ) ;
+	float	s = (float) sqrt( 2.0f / (float) __max(nSrcCount+nDstCount,1) ) ;
 	m_matrix.Create( nDstCount, nSrcCount + nBias ) ;
 	m_matrix.RandomizeNormalDist( 0.0f, s ) ;
 	m_bias = nBias ;
@@ -899,7 +899,7 @@ void NNPerceptron::PrepareBuffer
 			Buffer *	pRef = bufArray.at(iThisLayer - 1).get() ;
 			pRef->nRefOut ++ ;
 			pRef->iRefMostRearLayer =
-					max( pRef->iRefMostRearLayer, iThisLayer + 1 ) ;
+					__max( pRef->iRefMostRearLayer, iThisLayer + 1 ) ;
 		}
 	}
 	else
@@ -924,7 +924,7 @@ void NNPerceptron::PrepareBuffer
 					pRef->nRefOut ++ ;
 				}
 				pRef->iRefMostRearLayer =
-						max( pRef->iRefMostRearLayer, iThisLayer + 1 ) ;
+						__max( pRef->iRefMostRearLayer, iThisLayer + 1 ) ;
 			}
 		}
 	}
@@ -2524,7 +2524,7 @@ size_t NNIdentityPerceptron::GetDepthwise( void ) const
 {
 	const size_t	wMatrixCol = m_matrix.GetColumnCount() - GetBias() ;
 	const size_t	hMatrixLine = m_matrix.GetLineCount() ;
-	return	min( wMatrixCol, hMatrixLine ) ;
+	return	__min( wMatrixCol, hMatrixLine ) ;
 }
 
 // 行列の特殊化
@@ -2533,7 +2533,7 @@ void NNIdentityPerceptron::Specialize( void )
 {
 	const size_t	wMatrixCol = m_matrix.GetColumnCount() - GetBias() ;
 	const size_t	hMatrixLine = m_matrix.GetLineCount() ;
-	const size_t	nUnitSize = min( wMatrixCol, hMatrixLine ) ;
+	const size_t	nUnitSize = __min( wMatrixCol, hMatrixLine ) ;
 
 	for ( size_t line = 0; line < hMatrixLine; line ++ )
 	{

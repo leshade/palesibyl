@@ -496,7 +496,7 @@ void WaveFile::MakePCM16bitsFrom
 	const size_t	nCount = dimBuf.n * dimBuf.z ;
 	for ( size_t i = 0; i < nCount; i ++ )
 	{
-		pWave[i] = min( max( (int16_t) (pBuf[i] * 32768.0f), -0x7FFF ), 0x7FFF ) ;
+		pWave[i] = __min( __max( (int16_t) (pBuf[i] * 32768.0f), -0x7FFF ), 0x7FFF ) ;
 	}
 }
 
@@ -513,7 +513,7 @@ void WaveFile::MakePCM8bitsFrom
 	const size_t	nCount = dimBuf.n * dimBuf.z ;
 	for ( size_t i = 0; i < nCount; i ++ )
 	{
-		pWave[i] = min( max( (uint8_t) (pBuf[i] * 128.0f), -0x7F ), 0x7F ) ;
+		pWave[i] = __min( __max( (uint8_t) (pBuf[i] * 128.0f), -0x7F ), 0x7F ) ;
 	}
 }
 
@@ -678,7 +678,7 @@ std::shared_ptr<NNBuffer> NNMLPShellWaveCropper::CropWaveData
 	for ( size_t i = 0; (i < dimCrop.y) && (i < samplesIndecies.size()); i ++ )
 	{
 		const size_t	xSamples = samplesIndecies[i] ;
-		const size_t	zChannels = min( dimCrop.z, dimWave.z ) ;
+		const size_t	zChannels = __min( dimCrop.z, dimWave.z ) ;
 		float *			pDstWave = pCrop->GetBufferAt( 0, i ) ;
 		const float *	pSrcWave = pWave->GetBufferAt( xSamples, 0 ) ;
 		for ( size_t j = 0; j < dimCrop.x; j ++ )

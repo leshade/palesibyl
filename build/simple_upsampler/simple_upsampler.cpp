@@ -12,13 +12,13 @@ void PalesibylApp::Initialize( void )
 // アプリ固有の説明（ファイルの配置など）
 //////////////////////////////////////////////////////////////////////////////
 const char *	PalesibylApp::s_pszSpecificDescription =
-	"ディレクトリ構成;\n"
-	"[learn\\]\n"
-	"  + [source\\]  : 学習元画像ファイル\n"
-	"  + [teacher\\] : 教師画像ファイル（学習元と同名ファイル）\n"
-	"[predict\\]\n"
-	"  + [src\\]     : 予測入力画像ファイル\n"
-	"  + [out\\]     : 予測出力先\n" ;
+	"ディレクトリ構成;\r\n"
+	"[learn/]\r\n"
+	"  + [source/]  : 学習元画像ファイル\r\n"
+	"  + [teacher/] : 教師画像ファイル（学習元と同名ファイル）\r\n"
+	"[predict/]\r\n"
+	"  + [src/]     : 予測入力画像ファイル\r\n"
+	"  + [out/]     : 予測出力先\r\n" ;
 
 
 // モデルを作成
@@ -43,7 +43,7 @@ void PalesibylApp::BeforeLearning( void )
 std::shared_ptr<NNMLPShell::Iterator> PalesibylApp::MakeLearningIter( void )
 {
 	return	std::make_shared<UpsamplerImageCropper>
-				( "learn\\source", "learn\\teacher", NNBufDim( 128, 128, 3 ), 2 ) ;
+				( "learn/source", "learn/teacher", NNBufDim( 128, 128, 3 ), 2 ) ;
 }
 
 // 予測用イテレーター作成
@@ -51,7 +51,7 @@ std::shared_ptr<NNMLPShell::Iterator> PalesibylApp::MakeLearningIter( void )
 std::shared_ptr<NNMLPShell::Iterator> PalesibylApp::MakePredictiveIter( void )
 {
 	return	std::make_shared<NNMLPShellImageIterator>
-					( "predict\\src", "predict\\out", true, 3 ) ;
+					( "predict/src", "predict/out", true, 3 ) ;
 }
 
 

@@ -2,8 +2,13 @@
 #ifndef	__NN_CUDA_UTIL_H__
 #define	__NN_CUDA_UTIL_H__
 
-#include <windows.h>
+#if	defined(_WIN32) || defined(_WIN64) || defined(WIN32) || defined(WIN64)
+	// ※ GDI+ ヘッダがエラーとなるため #define NOMINMAX はしない
+	#include <windows.h>
+#endif
+
 #include "nn_cuda_def.h"
+
 
 namespace	Palesibyl
 {
@@ -22,9 +27,12 @@ namespace	Palesibyl
 			va_list	vl ;
 			va_start( vl, pszTrace ) ;
 
-			::_vsnprintf_s( szBuf, 0x1000, 0xFFF, pszTrace, vl ) ;
-
-			::OutputDebugString( szBuf ) ;
+			#if	defined(_WIN32) || defined(_WIN64) || defined(WIN32) || defined(WIN64)
+				::_vsnprintf_s( szBuf, 0x1000, 0xFFF, pszTrace, vl ) ;
+				::OutputDebugString( szBuf ) ;
+			#else
+				vprintf( pszTrace, vl ) ;
+			#endif
 		}
 	#endif
 #endif

@@ -1,5 +1,6 @@
 ﻿
 #include "sample_basic_app.h"
+#include <string.h>
 
 
 //////////////////////////////////////////////////////////////////////////////
@@ -361,7 +362,7 @@ bool PalesibylBasicApp::CheckArgumentsAfterParse( void )
 		std::cout << "/l と /p が同時に指定されています" << std::endl ;
 		return	false ;
 	}
-	else if ( m_strModelFile.empty() )
+	else if ( m_strModelFile.empty() && !(m_flagsArg & argumentHelp) )
 	{
 		std::cout << "モデルファイル名が指定されていません" << std::endl ;
 		m_flagsArg |= argumentHelp ;
@@ -429,29 +430,29 @@ int PalesibylBasicApp::Run( void )
 //////////////////////////////////////////////////////////////////////////////
 int PalesibylBasicApp::RunHelp( void )
 {
-	std::cout << "usage: [options]..." << std::endl ;
-	std::cout << "option;" << std::endl ;
-	std::cout << "/l <mode-file>    : 学習を実行します" << std::endl ;
-	std::cout << "/p <mode-file>    : 予測を実行します" << std::endl ;
-	std::cout << "/cuda             : CUDA を利用します" << std::endl ;
-	std::cout << "/loop <count>     : 学習ループ回数を指定します" << std::endl ;
-	std::cout << "/subloop <count>  : ミニバッチの反復回数を指定します" << std::endl ;
-	std::cout << "/batch <count>    : ミニバッチサイズを指定します" << std::endl ;
-	std::cout << "/delta <rate>[,<end-rate>]" << std::endl ;
-	std::cout << "                  : 学習係数を指定します" << std::endl ;
-	std::cout << "/thread <count>   : 最大のスレッド数を指定します" << std::endl ;
-	std::cout << "/batch_thread <count>" << std::endl ;
-	std::cout << "                  : ミニバッチの並列スレッド数を指定します" << std::endl ;
-	std::cout << "/log <csv-file>   : 学習ログファイルを出力します" << std::endl ;
-	std::cout << "/lgrd             : 学習ログにレイヤー毎の勾配ノルムを出力します" << std::endl ;
-	std::cout << "/tio <image-file> : 訓練画像の予測をミニバッチ毎に出力します" << std::endl ;
-	std::cout << "/vio <image-file> : 検証用画像の予測を逐次出力します" << std::endl ;
-	std::cout << "/ndo              : ドロップアウトは行わない" << std::endl ;
-	std::cout << "/nlfb             : ミニバッチ毎に進捗表示を改行しない" << std::endl ;
-	std::cout << "/pbs              : 学習中間バッファのサイズを表示します" << std::endl ;
-	std::cout << "/cubs             : 学習中間 CUDA バッファのサイズを表示します" << std::endl ;
+	std::cout << "\rusage: [options]...\r" << std::endl ;
+	std::cout << "option;\r" << std::endl ;
+	std::cout << "/l <mode-file>    : 学習を実行します\r" << std::endl ;
+	std::cout << "/p <mode-file>    : 予測を実行します\r" << std::endl ;
+	std::cout << "/cuda             : CUDA を利用します\r" << std::endl ;
+	std::cout << "/loop <count>     : 学習ループ回数を指定します\r" << std::endl ;
+	std::cout << "/subloop <count>  : ミニバッチの反復回数を指定します\r" << std::endl ;
+	std::cout << "/batch <count>    : ミニバッチサイズを指定します\r" << std::endl ;
+	std::cout << "/delta <rate>[,<end-rate>]\r" << std::endl ;
+	std::cout << "                  : 学習係数を指定します\r" << std::endl ;
+	std::cout << "/thread <count>   : 最大のスレッド数を指定します\r" << std::endl ;
+	std::cout << "/batch_thread <count>\r" << std::endl ;
+	std::cout << "                  : ミニバッチの並列スレッド数を指定します\r" << std::endl ;
+	std::cout << "/log <csv-file>   : 学習ログファイルを出力します\r" << std::endl ;
+	std::cout << "/lgrd             : 学習ログにレイヤー毎の勾配ノルムを出力します\r" << std::endl ;
+	std::cout << "/tio <image-file> : 訓練画像の予測をミニバッチ毎に出力します\r" << std::endl ;
+	std::cout << "/vio <image-file> : 検証用画像の予測を逐次出力します\r" << std::endl ;
+	std::cout << "/ndo              : ドロップアウトは行わない\r" << std::endl ;
+	std::cout << "/nlfb             : ミニバッチ毎に進捗表示を改行しない\r" << std::endl ;
+	std::cout << "/pbs              : 学習中間バッファのサイズを表示します\r" << std::endl ;
+	std::cout << "/cubs             : 学習中間 CUDA バッファのサイズを表示します\r" << std::endl ;
 	std::cout << std::endl ;
-	std::cout << "※学習／予測処理は ESC キーで中断できます" << std::endl ;
+	std::cout << "※学習／予測処理は ESC キーで中断できます\r" << std::endl ;
 	std::cout << std::endl ;
 	return	0 ;
 }

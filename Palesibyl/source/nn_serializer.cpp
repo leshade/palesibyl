@@ -1,5 +1,6 @@
 ﻿
 #include "nn_perceptron.h"
+#include <string.h>
 
 using namespace Palesibyl ;
 

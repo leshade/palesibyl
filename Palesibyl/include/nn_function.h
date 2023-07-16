@@ -9,6 +9,14 @@
 #include "nn_matrix.h"
 #include "nn_sampler.h"
 
+#ifndef __max
+	#define __max(a, b) (((a) > (b)) ? (a) : (b))
+#endif
+#ifndef __min
+	#define __min(a, b) (((a) < (b)) ? (a) : (b))
+#endif
+
+
 namespace	Palesibyl
 {
 
@@ -22,12 +30,12 @@ constexpr static const float	EXP_MAX_CAP = 80.0f ; // 88.5f ; ※少し余裕を
 
 inline __NN_CUDA_DEV__ float exp_sd( float x )
 {
-	return	(float) exp( min( x, EXP_MAX_CAP ) ) ;
+	return	(float) exp( __min( x, EXP_MAX_CAP ) ) ;
 }
 
 inline float exp_s( float x )
 {
-	return	(float) exp( min( x, EXP_MAX_CAP ) ) ;
+	return	(float) exp( __min( x, EXP_MAX_CAP ) ) ;
 }
 
 // argmax の出力形式
@@ -259,7 +267,7 @@ public:
 		{
 			const size_t	iOneHot = ((size_t) floor( pTeaching[z] )) * nDepthwise + z ;
 			//const size_t	iMax = (size_t) floor( pOutput[z * argmaxChannelCount + argmaxProbability] ) ;
-			const float		eSum = max( pOutput[z * argmaxChannelCount + argmaxSumExp], 0.00001f ) ;
+			const float		eSum = __max( pOutput[z * argmaxChannelCount + argmaxSumExp], 0.00001f ) ;
 			assert( iOneHot < nCount ) ;
 			assert( (iOneHot % nDepthwise) == z ) ;
 			for ( size_t i = z; i < nCount; i += nDepthwise )
@@ -281,7 +289,7 @@ public:
 	{
 		const size_t	zOut = iDstLossDelta % nDepthwise ;
 		const size_t	iOneHot = ((size_t) floor( pTeaching[zOut] )) * nDepthwise + zOut ;
-		const float		eSum = max( pOutput[zOut * argmaxChannelCount + argmaxSumExp], 0.00001f ) ;
+		const float		eSum = __max( pOutput[zOut * argmaxChannelCount + argmaxSumExp], 0.00001f ) ;
 		float	delta = exp_sd( pInAct[iDstLossDelta] ) / eSum ;
 		if ( iDstLossDelta == iOneHot )
 		{
@@ -363,7 +371,7 @@ public:
 				pLossDelta[i] = 0.0f ;
 			}
 			const size_t	iOneHot = ((size_t) floor( pTeaching[z] )) * nDepthwise + z ;
-			const float		eSum = max( pOutput[z * argmaxChannelCount + argmaxSumExp], 0.00001f ) ;
+			const float		eSum = __max( pOutput[z * argmaxChannelCount + argmaxSumExp], 0.00001f ) ;
 			assert( iOneHot < nCount ) ;
 			assert( (iOneHot % nDepthwise) == z ) ;
 			if ( iOneHot < nCount )
@@ -388,7 +396,7 @@ public:
 		const size_t	iOneHot = ((size_t) floor( pTeaching[zOut] )) * nDepthwise + zOut ;
 		const size_t	iMax = ((size_t) floor( pOutput[zOut * argmaxChannelCount + argmaxIndex] ))
 									* nDepthwise + zOut ;
-		const float		eSum = max( pOutput[zOut * argmaxChannelCount + argmaxSumExp], 0.00001f ) ;
+		const float		eSum = __max( pOutput[zOut * argmaxChannelCount + argmaxSumExp], 0.00001f ) ;
 		if ( iDstLossDelta == iOneHot )
 		{
 			return	exp_sd( pInAct[iDstLossDelta] ) / eSum - 1.0f ;
@@ -728,7 +736,7 @@ public:
 		{
 			d += pSrc[i] ;
 		}
-		return	pSrc[iDst] / max( d, 0.00001f ) ;
+		return	pSrc[iDst] / __max( d, 0.00001f ) ;
 	}
 	static inline void Activation
 		( float * pDst, const float * pSrc, size_t nSrcCount, size_t nDepthwise )
@@ -742,7 +750,7 @@ public:
 				d += e ;
 				pDst[i] = e ;
 			}
-			float	r = 1.0f / max( d, 0.00001f ) ;
+			float	r = 1.0f / __max( d, 0.00001f ) ;
 			for ( size_t i = z; i < nSrcCount; i += nDepthwise )
 			{
 				pDst[i] *= r ;
@@ -834,7 +842,7 @@ public:
 		case	argmaxIndex:
 			return	(float) ((iMax - iSrc) / nDepthwise) ;
 		case	argmaxProbability:
-			return	eMax / max( eSum, 0.00001f ) ;
+			return	eMax / __max( eSum, 0.00001f ) ;
 		case	argmaxSumExp:
 		default:
 			break ;
@@ -860,7 +868,7 @@ public:
 				eSum += e ;
 			}
 			pDst[zx3 + argmaxIndex]       = (float) ((iMax - z) / nDepthwise) ;
-			pDst[zx3 + argmaxProbability] = eMax / max( eSum, 0.00001f ) ;
+			pDst[zx3 + argmaxProbability] = eMax / __max( eSum, 0.00001f ) ;
 			pDst[zx3 + argmaxSumExp]      = eSum ;
 		}
 	}
@@ -884,7 +892,7 @@ public:
 			return	0.0f ;	// Positive Sampling (逆伝播出来ないので)
 		}
 		return	exp_sd( pSrc[iSrc] )
-					/ max(pActOut[iDst*argmaxChannelCount+argmaxSumExp],0.00001f) ;	// == Softmax(x)[iSrc]
+					/ __max(pActOut[iDst*argmaxChannelCount+argmaxSumExp],0.00001f) ;	// == Softmax(x)[iSrc]
 	}
 	static inline __NN_CUDA_DEV__ float kernelDifferential
 		( size_t iDst, const float * pSrc, size_t nSrcCount, size_t nDepthwise )
@@ -900,7 +908,7 @@ public:
 		{
 			const size_t	iMax = ((size_t) floor(pActOut[z * argmaxChannelCount + argmaxIndex]))
 									* nDepthwise + z ;
-			const float		eSum = max( pActOut[z * argmaxChannelCount + argmaxSumExp], 0.00001f ) ;
+			const float		eSum = __max( pActOut[z * argmaxChannelCount + argmaxSumExp], 0.00001f ) ;
 			for ( size_t i = z; i < nSrcCount; i += nDepthwise )
 			{
 				if ( iMax == i )
@@ -977,7 +985,7 @@ public:
 			d = pSrc[iDst] ;
 			for ( size_t i = iDst + nDepthwise; i < nSrcCount; i += nDepthwise )
 			{
-				d = max( d, pSrc[i] ) ;
+				d = __max( d, pSrc[i] ) ;
 			}
 		}
 		return	d ;

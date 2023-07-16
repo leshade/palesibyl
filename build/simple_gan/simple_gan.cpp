@@ -15,13 +15,13 @@ void PalesibylApp::Initialize( void )
 // アプリ固有の説明（ファイルの配置など）
 //////////////////////////////////////////////////////////////////////////////
 const char *	PalesibylApp::s_pszSpecificDescription =
-	"ファイル・ディレクトリ構成;\n"
-	"classifier.mlp : 分類器モデルファイル\n"
-	"[classes\\]\n"
-	"  + [xxxxxx\\] : 分類別画像ファイル（フォルダ名は分類名）\n"
-	"[predict\\]\n"
-	"  + [src\\]    : 分類名記述ファイル\n"
-	"  + [out\\]    : 生成画像出力先\n" ;
+	"ファイル・ディレクトリ構成;\r\n"
+	"classifier.mlp : 分類器モデルファイル\r\n"
+	"[classes/]\r\n"
+	"  + [xxxxxx/] : 分類別画像ファイル（フォルダ名は分類名）\r\n"
+	"[predict/]\r\n"
+	"  + [src/]    : 分類名記述ファイル\r\n"
+	"  + [out/]    : 生成画像出力先\r\n" ;
 
 
 // 生成器モデルを作成
@@ -125,7 +125,7 @@ std::shared_ptr<NNMLPShell::Iterator> PalesibylApp::MakePredictiveIter( void )
 {
 	std::shared_ptr<NNMLPShellImageGenerativeIterator>	iter =
 		std::make_shared<NNMLPShellImageGenerativeIterator>
-						( "predict\\src", "predict\\out", "classes" ) ;
+						( "predict/src", "predict/out", "classes" ) ;
 #ifdef	__CLASS_INDEX_FORMAT__
 	iter->SetOneHotToIndexFormat( true ) ;
 #endif

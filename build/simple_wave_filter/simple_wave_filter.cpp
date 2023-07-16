@@ -11,13 +11,13 @@ void PalesibylApp::Initialize( void )
 // アプリ固有の説明（ファイルの配置など）
 //////////////////////////////////////////////////////////////////////////////
 const char *	PalesibylApp::s_pszSpecificDescription =
-	"ディレクトリ構成;\n"
-	"[learn\\]\n"
-	"  + [source\\]  : 学習元 WAVE ファイル\n"
-	"  + [teacher\\] : 教師 WAVE ファイル（学習元と同名ファイル）\n"
-	"[predict\\]\n"
-	"  + [src\\]     : 予測入力 WAVE ファイル\n"
-	"  + [out\\]     : 予測出力先\n" ;
+	"ディレクトリ構成;\r\n"
+	"[learn/]\r\n"
+	"  + [source/]  : 学習元 WAVE ファイル\r\n"
+	"  + [teacher/] : 教師 WAVE ファイル（学習元と同名ファイル）\r\n"
+	"[predict/]\r\n"
+	"  + [src/]     : 予測入力 WAVE ファイル\r\n"
+	"  + [out/]     : 予測出力先\r\n" ;
 
 
 // モデルを作成
@@ -55,7 +55,7 @@ void PalesibylApp::BeforeLearning( void )
 std::shared_ptr<NNMLPShell::Iterator> PalesibylApp::MakeLearningIter( void )
 {
 	return	std::make_shared<NNMLPShellWaveCropper>
-			( "learn\\source", "learn\\teacher",
+			( "learn/source", "learn/teacher",
 					NNBufDim( 1024/4, 256, 1 ),
 					NNMLPShellWaveCropper::cropPadZero, 4, 4 ) ;
 }
@@ -65,6 +65,6 @@ std::shared_ptr<NNMLPShell::Iterator> PalesibylApp::MakeLearningIter( void )
 std::shared_ptr<NNMLPShell::Iterator> PalesibylApp::MakePredictiveIter( void )
 {
 	return	std::make_shared<NNMLPShellWaveIterator>
-			( "predict\\src", "predict\\out", true, 1, 4, 4 ) ;
+			( "predict/src", "predict/out", true, 1, 4, 4 ) ;
 }
 

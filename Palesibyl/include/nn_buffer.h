@@ -3,6 +3,7 @@
 #define	__NN_BUFFER_H__
 
 #include <vector>
+#include <memory>
 #include "nn_cuda_util.h"
 #include "nn_type_def.h"
 

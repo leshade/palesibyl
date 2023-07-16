@@ -1,5 +1,6 @@
 ﻿
 #include "nn_multi_layer.h"
+#include <string.h>
 
 using namespace Palesibyl ;
 
@@ -67,7 +68,7 @@ size_t NNMultiLayerPerceptron::CountOfPrePrediction( void ) const
 	if ( (m_flagsMLP & mlpFlagStream)
 		&& (m_dimInShape.x != 0) && (m_dimInUnit.x != 0) )
 	{
-//		size_t	nCount = max( m_dimInShape.x / m_dimInUnit.x, 1 ) ;
+//		size_t	nCount = __max( m_dimInShape.x / m_dimInUnit.x, 1 ) ;
 		size_t	nCount = 1 ;
 		for ( size_t i = 0; i < GetLayerCount(); i ++ )
 		{
@@ -1437,16 +1438,16 @@ void NNMultiLayerPerceptron::GradientReflection
 		{
 			const float	norm = (lagArray.at(i).matGradient
 										/ (float) nGradient).FrobeniusNorm() ;
-			maxNorm = max( maxNorm, norm * GetLayerAt(i)->GetGradientFactor() ) ;
+			maxNorm = __max( maxNorm, norm * GetLayerAt(i)->GetGradientFactor() ) ;
 			nCount ++ ;
 		}
 	}
 	// 勾配が大きい場合、暴れてしまうのを抑制（特に 適用最適化無しの SGD の場合）
-	lagArray.bufNormMax = max( maxNorm,
+	lagArray.bufNormMax = __max( maxNorm,
 								(lagArray.bufNormMax * 0.9f + maxNorm * 0.1f) ) ;
 
 	// 勾配反映
-	const float	scaleGrad = 1.0f / max( lagArray.bufNormMax, 1.0f ) ;
+	const float	scaleGrad = 1.0f / __max( lagArray.bufNormMax, 1.0f ) ;
 	for ( size_t i = 0; i < GetLayerCount(); i ++ )
 	{
 		GetLayerAt(i)->AddMatrixGradient( lagArray.at(i), deltaRate, scaleGrad ) ;

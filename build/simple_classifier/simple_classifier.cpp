@@ -14,10 +14,10 @@ void PalesibylApp::Initialize( void )
 // アプリ固有の説明（ファイルの配置など）
 //////////////////////////////////////////////////////////////////////////////
 const char *	PalesibylApp::s_pszSpecificDescription =
-	"ディレクトリ構成;\n"
-	"[classes\\]\n"
-	"  + [xxxxxx\\] : 分類別画像ファイル（フォルダ名は分類名）\n"
-	"[predict\\]    : 予測分類元画像ファイル\n" ;
+	"ディレクトリ構成;\r\n"
+	"[classes/]\r\n"
+	"  + [xxxxxx/] : 分類別画像ファイル（フォルダ名は分類名）\r\n"
+	"[predict/]    : 予測分類元画像ファイル\r\n" ;
 
 
 // モデルを作成

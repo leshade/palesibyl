@@ -11,7 +11,7 @@
 	#define	__NN_USE_SIMD__
 	#include <xmmintrin.h>
 	#include <emmintrin.h>
-	#include <intrin.h>
+	//#include <intrin.h>
 
 #endif
 

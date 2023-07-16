@@ -1,6 +1,11 @@
 ﻿
 #include "nn_buffer.h"
 #include "nn_cuda_kernel.h"
+#include <algorithm>
+
+#ifdef	min
+	#undef	min
+#endif
 
 using namespace Palesibyl ;
 
@@ -320,9 +325,9 @@ void NNBuffer::CopyFrom( const NNBuffer& nnSrcBuf, NNBufDim dimSrcOffset )
 	dimCopy.y -= dimSrcOffset.y ;
 	dimCopy.z -= dimSrcOffset.z ;
 	//
-	dimCopy.x = min( dimCopy.x, m_dimSize.x ) ;
-	dimCopy.y = min( dimCopy.y, m_dimSize.y ) ;
-	dimCopy.z = min( dimCopy.z, m_dimSize.z ) ;
+	dimCopy.x = std::min( dimCopy.x, m_dimSize.x ) ;
+	dimCopy.y = std::min( dimCopy.y, m_dimSize.y ) ;
+	dimCopy.z = std::min( dimCopy.z, m_dimSize.z ) ;
 	//
 	float *			pDstBuf = GetBuffer() ;
 	const float *	pSrcBuf = nnSrcBuf.GetConstBuffer() ;
@@ -361,9 +366,9 @@ void NNBuffer::CopyChannelFrom
 		return ;
 	}
 	NNBufDim	dimCopy = dimSrc ;
-	dimCopy.x = min( dimCopy.x, m_dimSize.x ) ;
-	dimCopy.y = min( dimCopy.y, m_dimSize.y ) ;
-	dimCopy.z = min( dimSrc.z - iSrcChannel, m_dimSize.z - iDstChannel ) ;
+	dimCopy.x = std::min( dimCopy.x, m_dimSize.x ) ;
+	dimCopy.y = std::min( dimCopy.y, m_dimSize.y ) ;
+	dimCopy.z = std::min( dimSrc.z - iSrcChannel, m_dimSize.z - iDstChannel ) ;
 	if ( (nSrcChCount != 0) && (nSrcChCount < dimCopy.z) )
 	{
 		dimCopy.z = nSrcChCount ;
@@ -408,9 +413,9 @@ void NNBuffer::ShiftCopyChannelFrom
 		return ;
 	}
 	NNBufDim	dimCopy = dimSrc ;
-	dimCopy.x = min( dimCopy.x, m_dimSize.x ) ;
-	dimCopy.y = min( dimCopy.y, m_dimSize.y ) ;
-	dimCopy.z = min( dimSrc.z - iSrcChannel, m_dimSize.z - iDstChannel ) ;
+	dimCopy.x = std::min( dimCopy.x, m_dimSize.x ) ;
+	dimCopy.y = std::min( dimCopy.y, m_dimSize.y ) ;
+	dimCopy.z = std::min( dimSrc.z - iSrcChannel, m_dimSize.z - iDstChannel ) ;
 	if ( (nSrcChCount != 0) && (nSrcChCount < dimCopy.z) )
 	{
 		dimCopy.z = nSrcChCount ;
@@ -466,9 +471,9 @@ void NNBuffer::AddChannelValue
 		return ;
 	}
 	NNBufDim	dimCopy = dimSrc ;
-	dimCopy.n = min( dimCopy.n, m_dimSize.n ) ;
-	dimCopy.z = min( dimSrc.z - iSrcChannel, m_dimSize.z - iDstChannel ) ;
-	dimCopy.z = min( dimCopy.z, nChannelCount ) ;
+	dimCopy.n = std::min( dimCopy.n, m_dimSize.n ) ;
+	dimCopy.z = std::min( dimSrc.z - iSrcChannel, m_dimSize.z - iDstChannel ) ;
+	dimCopy.z = std::min( dimCopy.z, nChannelCount ) ;
 
 	float *			pDstBuf = GetBuffer() ;
 	const float *	pSrcBuf = nnSrcBuf.GetConstBuffer() ;
