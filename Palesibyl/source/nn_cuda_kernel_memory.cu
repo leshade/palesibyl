@@ -143,19 +143,23 @@ public:
 //////////////////////////////////////////////////////////////////////////////
 
 template <class Op> __global__ void nncuda_ShiftOperationMemory
-	( float * pDst, NNBufDim dimDst, size_t iDstChannel,
+	( float * pDst, NNBufDim dimDst,
+		size_t xDstOffset, size_t yDstOffset,
+		size_t nDstWidth, size_t nDstHeight, size_t iDstChannel,
 		float * pSrc, NNBufDim dimSrc, int xShift, int yShift,
 		size_t iSrcChannel, size_t nChannelCount,
 		float scaleFactor, int xThreads, int yThreads )
 {
-	const int	tx = threadIdx.x ;
-	const int	ty = threadIdx.y ;
-	const int	bx = blockIdx.x * yThreads + ty ;
-	const int	by = blockIdx.y ;
-	const int	bi = bx + by * dimDst.x ;
+	const size_t	tx = threadIdx.x ;
+	const size_t	ty = threadIdx.y ;
+	const size_t	bx0 = blockIdx.x * yThreads + ty ;
+	const size_t	by0 = blockIdx.y ;
+	const size_t	bx = bx0 + xDstOffset ;
+	const size_t	by = by0 + yDstOffset ;
+	const size_t	bi = bx + by * dimDst.x ;
 
-	int	xSrc = bx - xShift ;
-	int	ySrc = by - yShift ;
+	int	xSrc = bx0 - xShift ;
+	int	ySrc = by0 - yShift ;
 	if ( (xSrc < 0) || (xSrc >= dimSrc.x) )
 	{
 		xSrc = bx ;
@@ -166,7 +170,7 @@ template <class Op> __global__ void nncuda_ShiftOperationMemory
 	}
 	const int	iSrc = (ySrc * dimSrc.x) + xSrc ;
 
-	if ( (bx < dimDst.x) && (by < dimDst.y) && (bi < dimDst.n) )
+	if ( (bx0 < nDstWidth) && (bx < dimDst.x) && (by < dimDst.y) && (bi < dimDst.n) )
 	{
 		for ( size_t iChannel = tx;
 				(iChannel < nChannelCount) && ((iDstChannel + iChannel) < dimDst.z);
@@ -191,7 +195,9 @@ template <class Op> __global__ void nncuda_ShiftOperationMemory
 }
 
 void Palesibyl::nncuda_ShiftMoveMemory
-	( float * pDst, NNBufDim dimDst, size_t iDstChannel,
+	( float * pDst, NNBufDim dimDst,
+		size_t xDstOffset, size_t yDstOffset, size_t iDstChannel,
+		size_t nDstWidth, size_t nDstHeight,
 		float * pSrc, NNBufDim dimSrc, int xShift, int yShift,
 		size_t iSrcChannel, size_t nChannelCount,
 		float scaleFactor, cudaStream_t stream )
@@ -200,19 +206,24 @@ void Palesibyl::nncuda_ShiftMoveMemory
 	unsigned int	xThreads = threads.x ;
 	unsigned int	yThreads = threads.y ;
 
-	dim3	grid( ((unsigned int) dimDst.x + yThreads - 1) / yThreads,
-					(unsigned int) dimDst.y ) ;
+	assert( xDstOffset + nDstWidth <= dimDst.x ) ;
+	assert( yDstOffset + nDstHeight <= dimDst.y ) ;
+	dim3	grid( ((unsigned int) nDstWidth + yThreads - 1) / yThreads,
+					(unsigned int) nDstHeight ) ;
 
 	nncuda_ShiftOperationMemory<OperationCopy>
 		<<<grid, threads, 0, stream>>>
-			( pDst, dimDst, iDstChannel,
+			( pDst, dimDst, xDstOffset, yDstOffset,
+				nDstWidth, nDstHeight, iDstChannel,
 				pSrc, dimSrc, xShift, yShift,
 				iSrcChannel, nChannelCount,
 				scaleFactor, xThreads, yThreads ) ;
 }
 
 void Palesibyl::nncuda_ShiftAddMemory
-	( float * pDst, NNBufDim dimDst, size_t iDstChannel,
+	( float * pDst, NNBufDim dimDst,
+		size_t xDstOffset, size_t yDstOffset, size_t iDstChannel,
+		size_t nDstWidth, size_t nDstHeight,
 		float * pSrc, NNBufDim dimSrc, int xShift, int yShift,
 		size_t iSrcChannel, size_t nChannelCount,
 		float scaleFactor, cudaStream_t stream )
@@ -221,12 +232,15 @@ void Palesibyl::nncuda_ShiftAddMemory
 	unsigned int	xThreads = threads.x ;
 	unsigned int	yThreads = threads.y ;
 
-	dim3	grid( ((unsigned int) dimDst.x + yThreads - 1) / yThreads,
-					(unsigned int) dimDst.y ) ;
+	assert( xDstOffset + nDstWidth <= dimDst.x ) ;
+	assert( yDstOffset + nDstHeight <= dimDst.y ) ;
+	dim3	grid( ((unsigned int) nDstWidth + yThreads - 1) / yThreads,
+					(unsigned int) nDstHeight ) ;
 
 	nncuda_ShiftOperationMemory<OperationAdd>
 		<<<grid, threads, 0, stream>>>
-			( pDst, dimDst, iDstChannel,
+			( pDst, dimDst, xDstOffset, yDstOffset,
+				nDstWidth, nDstHeight, iDstChannel,
 				pSrc, dimSrc, xShift, yShift,
 				iSrcChannel, nChannelCount,
 				scaleFactor, xThreads, yThreads ) ;

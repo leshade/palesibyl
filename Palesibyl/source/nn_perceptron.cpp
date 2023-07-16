@@ -1159,8 +1159,8 @@ NNPerceptron::InputBuffer NNPerceptron::PrepareInput
 				size_t iSrcChannel, size_t nSrcChCount )
 			{
 				nnDstBuf.CudaCopyChannelFrom
-					( iDstChannel, nnSrcBuf, xShiftSample, yShiftSample,
-						iSrcChannel, nSrcChCount, stream.m_cudaStream ) ;
+					( 0, 0, iDstChannel, nnSrcBuf, xShiftSample, yShiftSample,
+						iSrcChannel, nSrcChCount, 0, 0, stream.m_cudaStream ) ;
 			} ;
 		FuncShiftCopy&	ShiftCopy = stream.m_useCuda ? cudaShiftCopy : cpuShiftCopy ;
 		//
@@ -1557,8 +1557,8 @@ void NNPerceptron::cudaShiftBufferWithStreaming
 		NNBufDim	dimOutput = bufThis.bufOutput.GetSize() ;
 		bufThis.bufDelay.CommitCuda() ;
 		bufThis.bufDelay.CudaCopyChannelFrom
-			( 0, bufThis.bufOutput, - (int) xShift, 0,
-					0, dimOutput.z, stream.m_cudaStream ) ;
+			( 0, 0, 0, bufThis.bufOutput, - (int) xShift, 0,
+				0, dimOutput.z, dimOutput.x, dimOutput.y, stream.m_cudaStream ) ;
 	}
 	else
 	{
@@ -1566,8 +1566,8 @@ void NNPerceptron::cudaShiftBufferWithStreaming
 		const NNBufDim	dimOutput = bufThis.bufOutput.GetSize() ;
 		bufThis.bufDelay.CommitCuda() ;
 		bufThis.bufDelay.CudaCopyChannelFrom
-			( 0, bufThis.bufOutput, - (int) xShift, 0,
-					0, dimOutput.z, stream.m_cudaStream ) ;
+			( 0, 0, 0, bufThis.bufOutput, - (int) xShift, 0,
+				0, dimOutput.z, dimOutput.x, dimOutput.y, stream.m_cudaStream ) ;
 		bufThis.bufOutput.SwapBuffer( bufThis.bufDelay ) ;
 	}
 }
@@ -1608,8 +1608,8 @@ void NNPerceptron::cudaCopyTeachingDataToDelayBuffer
 		bufThis.bufDelay.CommitCuda() ;
 		bufTeaching.CommitCuda() ;
 		bufThis.bufDelay.CudaCopyChannelFrom
-			( 0, bufTeaching, 0, 0,
-					0, dimTeaching.z, stream.m_cudaStream ) ;
+			( 0, 0, 0, bufTeaching, 0, 0,
+				0, dimTeaching.z, dimTeaching.x, dimTeaching.y, stream.m_cudaStream ) ;
 	}
 }
 
@@ -1689,8 +1689,8 @@ void NNPerceptron::cudaSwitchDeltaSecondaryBuffer
 	assert( bufThis.reqDelta2 ) ;
 	NNBufDim	dimDelta = bufThis.bufPrevDelta.GetSize() ;
 	bufThis.bufPrevDelta.CudaCopyChannelFrom
-		( 0, bufThis.bufPrevDelta2, 0, 0,
-				0, dimDelta.z, stream.m_cudaStream ) ;
+		( 0, 0, 0, bufThis.bufPrevDelta2, 0, 0,
+			0, dimDelta.z, dimDelta.x, dimDelta.y, stream.m_cudaStream ) ;
 }
 
 // 損失関数δ計算
@@ -2200,21 +2200,26 @@ void NNPerceptron::LayerDeltaBack
 	{
 		return ;
 	}
-	typedef	std::function<void(NNBuffer&,size_t,size_t,const NNBuffer&,int,size_t,float)>	FuncAddChannel ;
+	typedef	std::function<void(NNBuffer&,size_t,size_t,size_t,size_t,size_t,size_t,const NNBuffer&,int,size_t,float)>	FuncAddChannel ;
 	FuncAddChannel	cpuAddChannelTo =
-		[]( NNBuffer& nnDstBuf, size_t iDstChannel, size_t nChannelCount,
+		[]( NNBuffer& nnDstBuf, size_t xDst, size_t yDst, size_t iDstChannel,
+				size_t nWidth, size_t nHeight, size_t nChannelCount,
 				const NNBuffer& nnSrcBuf, int xShift, size_t iSrcChannel, float scaleSrc )
 		{
 			nnDstBuf.AddChannelValue
-				( iDstChannel, nnSrcBuf, xShift, iSrcChannel, nChannelCount, scaleSrc ) ;
+				( xDst, yDst, iDstChannel, nnSrcBuf,
+					xShift, iSrcChannel, nChannelCount,
+					nWidth, nHeight, scaleSrc ) ;
 		} ;
 	FuncAddChannel	cudaAddChannelTo =
-		[&]( NNBuffer& nnDstBuf, size_t iDstChannel, size_t nChannelCount,
+		[&]( NNBuffer& nnDstBuf, size_t xDst, size_t yDst, size_t iDstChannel,
+				size_t nWidth, size_t nHeight, size_t nChannelCount,
 				const NNBuffer& nnSrcBuf, int xShift, size_t iSrcChannel, float scaleSrc )
 		{
 			nnDstBuf.CudaAddChannelFrom
-				( iDstChannel, nnSrcBuf,
-					xShift, 0, iSrcChannel, nChannelCount, scaleSrc, stream.m_cudaStream ) ;
+				( xDst, yDst, iDstChannel, nnSrcBuf,
+					xShift, 0, iSrcChannel, nChannelCount,
+					nWidth, nHeight, scaleSrc, stream.m_cudaStream ) ;
 		} ;
 	FuncAddChannel&	AddChannelTo = stream.m_useCuda ? cudaAddChannelTo : cpuAddChannelTo ;
 
@@ -2226,7 +2231,8 @@ void NNPerceptron::LayerDeltaBack
 		{
 			std::shared_ptr<Buffer>	pBufRef = bufArray.at(iThisLayer - 1) ;
 			NNBufDim	dimRef = pBufRef->bufPrevDelta.GetSize() ;
-			AddChannelTo( pBufRef->bufPrevDelta, 0, dimRef.z,
+			AddChannelTo( pBufRef->bufPrevDelta, 0, 0, 0,
+							dimRef.x, dimRef.y, dimRef.z,
 							bufThis.bufOutDelta, 0, 0,
 							scaleDelta /*/ (float) max(pBufRef->nRefOut,1)*/ ) ;
 		}
@@ -2262,11 +2268,15 @@ void NNPerceptron::LayerDeltaBack
 			NNBufDim	dimRef = bufDstDelta.GetSize() ;
 			bufDstDelta.Commit() ;
 			//
+			assert( dimRef.x > cn.xOffset*2 ) ;
+			assert( dimRef.y > cn.yOffset*2 ) ;
 			if ( cn.nChannels == 0 )
 			{
 				assert( cn.iChannel == 0 ) ;
 				AddChannelTo
-					( bufDstDelta, 0, dimRef.z,
+					( bufDstDelta, cn.xOffset, cn.yOffset, 0,
+						dimRef.x - cn.xOffset*2,
+						dimRef.y - cn.yOffset*2, dimRef.z,
 						bufThis.bufOutDelta, - cn.iDelay, chNext,
 						scaleDelta * scaleRef ) ;
 				chNext += dimRef.z ;
@@ -2275,7 +2285,9 @@ void NNPerceptron::LayerDeltaBack
 			{
 				assert( dimRef.z >= cn.iChannel + cn.nChannels ) ;
 				AddChannelTo
-					( bufDstDelta, cn.iChannel, cn.nChannels,
+					( bufDstDelta, cn.xOffset, cn.yOffset, cn.iChannel,
+						dimRef.x - cn.xOffset*2,
+						dimRef.y - cn.yOffset*2, cn.nChannels,
 						bufThis.bufOutDelta, - cn.iDelay, chNext,
 						scaleDelta * scaleRef ) ;
 				chNext += cn.nChannels ;
@@ -2296,7 +2308,8 @@ void NNPerceptron::LayerDeltaBackTo
 	{
 		bufDst.bufPrevDelta.CommitCuda() ;
 		bufDst.bufPrevDelta.CudaCopyChannelFrom
-			( 0, bufThis.bufOutDelta, 0, 0, 0, dimRef.z, stream.m_cudaStream ) ;
+			( 0, 0, 0, bufThis.bufOutDelta, 0, 0, 0, dimRef.z,
+				dimRef.x, dimRef.y, stream.m_cudaStream ) ;
 	}
 	else
 	{

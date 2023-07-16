@@ -98,9 +98,10 @@ public:
 			size_t iSrcChannel = 0, size_t nSrcChCount = 0 ) ;
 	// 要素値加算
 	void AddChannelValue
-		( size_t iDstChannel,
+		( size_t xDst, size_t yDst, size_t iDstChannel,
 			const NNBuffer& nnSrcBuf, int xShift,
-			size_t iSrcChannel, size_t nChannelCount, float scaleFactor ) ;
+			size_t iSrcChannel, size_t nChannelCount,
+			size_t nWidth = 0, size_t nHeight = 0, float scaleFactor = 1.0f ) ;
 	// バッファポインタ
 	float * GetBuffer( void ) ;
 	float * GetBufferAt( size_t x, size_t y ) ;
@@ -129,14 +130,15 @@ public:
 	void CudaCopyDeviceFrom
 		( const CudaFloat1DMemory& cmemSrc, cudaStream_t stream ) ;
 	void CudaCopyChannelFrom
-		( size_t iDstChannel,
-			const NNBuffer& nnSrcBuf, int xShift, int yShift,
-			size_t iSrcChannel, size_t nChannelCount, cudaStream_t stream ) ;
-	void CudaAddChannelFrom
-		( size_t iDstChannel,
+		( size_t xDst, size_t yDst, size_t iDstChannel,
 			const NNBuffer& nnSrcBuf, int xShift, int yShift,
 			size_t iSrcChannel, size_t nChannelCount,
-			float scaleSrc, cudaStream_t stream ) ;
+			size_t nWidth, size_t nHeight, cudaStream_t stream ) ;
+	void CudaAddChannelFrom
+		( size_t xDst, size_t yDst, size_t iDstChannel,
+			const NNBuffer& nnSrcBuf, int xShift, int yShift,
+			size_t iSrcChannel, size_t nChannelCount,
+			size_t nWidth, size_t nHeight, float scaleSrc, cudaStream_t stream ) ;
 	// CUDA メモリ
 	CudaFloat1DMemory& CudaMemory( void ) ;
 	const CudaFloat1DMemory& GetCudaMemory( void ) const ;
