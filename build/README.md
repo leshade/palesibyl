@@ -306,7 +306,7 @@
 ## インストールメモ (Linux/WSL)
 
 * OpenCV  
-  [OpenCV](https://github.com/opencv/opencv) を git clone するか、zip でダウンロードし、以下のように実行するとインストール出来ました。
+  [OpenCV](https://github.com/opencv/opencv) を git clone するか、zip をダウンロードし、以下のように実行するとインストール出来ました。
 
   ```bash
   $ unzip opencv-4.8.0.zip
