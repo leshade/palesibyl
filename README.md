@@ -4,8 +4,7 @@
 
 `Palesibyl（ペイルシビラ）`は C++ 用深層学習ライブラリです。
 
-64bit Windows<sup>※</sup>、GPU（CUDA）/ x86_64 CPU で動作します（CUDA 無しでも動作します）。  
-<sup>※画像 CODEC のみ Windows に依存しています</sup>
+64bit Windows / Linux、GPU（CUDA）/ x86_64 CPU で動作します（CUDA 無しでも動作します）。  
 
 このライブラリは深層学習の基礎を｛学ぶため｜学びながら｝個人的に開発したものであり、玩具のようなものです。*実用性は保証しません。*
 
@@ -51,11 +50,24 @@
 
 ## ビルド
 
-ビルドには Visual Studio 及び NVIDIA CUDA Toolkit が必要です。  
-（開発時点では Visual Studio 2019 及び NVIDIA CUDA Toolkit 12 を使用しています）
+* Windows  
+  ビルドには Visual Studio 及び NVIDIA CUDA Toolkit が必要です。  
+  （開発時点では Visual Studio 2019 及び NVIDIA CUDA Toolkit 12 を使用しています）
 
-インストールした上で `build/Palesibyl/Palesibyl.sln` を Visual Studio で開きビルドを実行してください。  
-<sup>※Debug ビルドは重すぎて実行には不向きですので、デバッグ／検証以外の場合には Release でビルドしてください。</sup>
+  インストールした上で `build/Palesibyl/Palesibyl.sln` を Visual Studio で開きビルドを実行してください。  
+  <sup>※Debug ビルドは重すぎて実行には不向きですので、デバッグ／検証以外の場合には Release でビルドしてください。</sup>
+
+* Linux  
+  ビルドには CMake 及び C++ コンパイラ類、NVIDIA CUDA Toolkit、OpenCV（画像コーデックとして）が必要です。  
+  （NVIDIA CUDA Toolkit 12 でビルドを確認しています。11 の nvcc ではビルドできませんでした）
+
+  CMake で `build/CMakeLists.txt` からビルドしてください。
+
+  ```bash
+  $ cd build
+  $ cmake .
+  $ make
+  ```
 
 
 ## サンプルコード

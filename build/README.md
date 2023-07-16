@@ -18,13 +18,16 @@
 
 ## ビルド環境
 
-* Visual Studio  
+* Visual Studio (Windows)  
   開発時点では Visual Studio Professional 2019 を使用  
   C++17 標準ライブラリ (std::filesystem を使用のため／それ以外は C++14 でも可) 
 
 * NVIDIA CUDA Toolkit  
   開発時点では NVIDIA CUDA Toolkit 12 を使用
 
+* OpenCV (Linux)  
+  Linux では画像コーデックとして使用するため。  
+  （Windows では GDI+ を画像コーデックとして使用するため必要なし）
 
 ## 使用法
 
@@ -299,5 +302,24 @@
   プロジェクトプロパティ「C/C++」の「コード生成」＞「ランライムライブラリ」に、Debug では「マルチスレッド デバッグ (/MTd)」、Release では「マルチスレッド (/MT)」を選択。  
   （ライブラリのビルド時の設定と合わせればこれ以外でも構いません）
 
+
+## インストールメモ (Linux/WSL)
+
+* OpenCV  
+  [OpenCV](https://github.com/opencv/opencv) を git clone するか、zip でダウンロードし、以下のように実行するとインストール出来ました。
+
+  ```bash
+  $ unzip opencv-4.8.0.zip
+  $ cd opencv-4.8.0
+  $ mkdir build
+  $ cd build
+  $ cmake -DOPENCV_GENERATE_PKGCONFIG=ON ..
+  $ cmake --build .
+  $ make
+  $ sudo make install
+  $ sudo ldconfig
+  ```
+
+  OPENCV_GENERATE_PKGCONFIG=ON としておくのがポイントらしいです。
 
 

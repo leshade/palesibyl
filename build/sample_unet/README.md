@@ -95,7 +95,7 @@ samples/sample_unet/make_learn/src/ 内に学習用 PNG 画像ファイルを設
 画像サイズを320より小さくしたい場合には [sample_unet.cpp](./sample_unet.cpp) の
 ```cpp
 return    std::make_shared<NNMLPShellImageCropper>
-    ( "learn\\source", "learn\\teacher",
+    ( "learn/source", "learn/teacher",
         NNBufDim( 320, 320, 3 ), trim0, trim0, trim0, trim0 ) ;
 ```
 の箇所の NNBufDim( 320, 320, 3 ) を小さくしておく必要があります。  
@@ -108,6 +108,6 @@ return    std::make_shared<NNMLPShellImageCropper>
 このサンプルは [sample_resnet](../sample_resnet/) と同様に着色させようとしていますが、しっかり学習するためにはエポック数を増やすか画像を多め（と言っても100枚程度以上）に用意する必要があるかと思います。少し遊びで学習させるにはコスト高めなサンプルかと思います。
 
 learn.bat を実行すると学習が開始されます。  
-/vio で predict\out\valid_image.bmp にエポックごとに検証用画像が出力されますので、進捗を目視で確認できます。暇なら /tio でも画像を出力させて眺めているといい感じに時間が溶けていきます。  
+/vio で predict/out/valid_image.bmp にエポックごとに検証用画像が出力されますので、進捗を目視で確認できます。暇なら /tio でも画像を出力させて眺めているといい感じに時間が溶けていきます。  
 /delta 0.03～0.02 あたりでしっかり目に学習させてから小さくしていかないと色分けも中途半端で、アップサンプリングでのノイズも残ったような仕上がりになりがちな気がします。
 
