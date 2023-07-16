@@ -454,9 +454,10 @@ void NNBuffer::ShiftCopyChannelFrom
 // 要素値加算
 //////////////////////////////////////////////////////////////////////////////
 void NNBuffer::AddChannelValue
-	( size_t iDstChannel,
+	( size_t xDst, size_t yDst, size_t iDstChannel,
 		const NNBuffer& nnSrcBuf, int xShift,
-		size_t iSrcChannel, size_t nChannelCount, float scaleFactor )
+		size_t iSrcChannel, size_t nChannelCount,
+		size_t nWidth, size_t nHeight, float scaleFactor )
 {
 	assert( nnSrcBuf.IsCommitted() ) ;
 	Commit() ;
@@ -470,8 +471,19 @@ void NNBuffer::AddChannelValue
 	{
 		return ;
 	}
+	if ( nWidth == 0 )
+	{
+		assert( xDst < m_dimSize.x ) ;
+		nWidth = m_dimSize.x - xDst ;
+	}
+	if ( nHeight == 0 )
+	{
+		assert( yDst < m_dimSize.y ) ;
+		nHeight = m_dimSize.y - yDst ;
+	}
 	NNBufDim	dimCopy = dimSrc ;
-	dimCopy.n = std::min( dimCopy.n, m_dimSize.n ) ;
+	dimCopy.x = std::min( dimCopy.x, nWidth ) ;
+	dimCopy.y = std::min( dimCopy.y, nHeight ) ;
 	dimCopy.z = std::min( dimSrc.z - iSrcChannel, m_dimSize.z - iDstChannel ) ;
 	dimCopy.z = std::min( dimCopy.z, nChannelCount ) ;
 
@@ -481,7 +493,8 @@ void NNBuffer::AddChannelValue
 	const size_t	nSrcLineStride = dimSrc.x * dimSrc.z ;
 	for ( size_t y = 0; y < dimCopy.y; y ++ )
 	{
-		float *			pDstLineBuf = pDstBuf + y * nDstLineStride ;
+		float *			pDstLineBuf = pDstBuf + (y + yDst) * nDstLineStride
+												+ xDst * m_dimSize.z ;
 		const float *	pSrcLineBuf = pSrcBuf + y * nSrcLineStride ;
 		for ( size_t x = 0; x < dimCopy.x; x ++ )
 		{
@@ -651,35 +664,61 @@ void NNBuffer::CudaCopyDeviceFrom
 }
 
 void NNBuffer::CudaCopyChannelFrom
-	( size_t iDstChannel,
+	( size_t xDst, size_t yDst, size_t iDstChannel,
 		const NNBuffer& nnSrcBuf, int xShift, int yShift,
-		size_t iSrcChannel, size_t nChannelCount, cudaStream_t stream )
+		size_t iSrcChannel, size_t nChannelCount,
+		size_t nWidth, size_t nHeight, cudaStream_t stream )
 {
+	if ( nWidth == 0 )
+	{
+		assert( xDst < m_dimSize.x ) ;
+		nWidth = m_dimSize.x - xDst ;
+	}
+	if ( nHeight == 0 )
+	{
+		assert( yDst < m_dimSize.y ) ;
+		nHeight = m_dimSize.y - yDst ;
+	}
 	assert( m_commitCuda ) ;
 	assert( m_cudaMemory != nullptr ) ;
 	assert( nnSrcBuf.m_cudaMemory != nullptr ) ;
+	assert( xDst + nWidth <= m_dimSize.x ) ;
+	assert( yDst + nHeight <= m_dimSize.y ) ;
 	assert( iDstChannel + nChannelCount <= m_dimSize.z ) ;
 	assert( iSrcChannel + nChannelCount <= nnSrcBuf.m_dimSize.z ) ;
 	nncuda_ShiftMoveMemory
-		( m_cudaMemory->GetDevicePtr(), m_dimSize, iDstChannel,
+		( m_cudaMemory->GetDevicePtr(), m_dimSize,
+			xDst, yDst, iDstChannel, nWidth, nHeight,
 			nnSrcBuf.m_cudaMemory->GetDevicePtr(), nnSrcBuf.m_dimSize,
 			xShift, yShift, iSrcChannel, nChannelCount, 1.0f, stream ) ;
 }
 
 void NNBuffer::CudaAddChannelFrom
-	( size_t iDstChannel,
+	( size_t xDst, size_t yDst, size_t iDstChannel,
 		const NNBuffer& nnSrcBuf, int xShift, int yShift,
 		size_t iSrcChannel, size_t nChannelCount,
-		float scaleSrc, cudaStream_t stream )
+		size_t nWidth, size_t nHeight, float scaleSrc, cudaStream_t stream )
 {
+	if ( nWidth == 0 )
+	{
+		assert( xDst < m_dimSize.x ) ;
+		nWidth = m_dimSize.x - xDst ;
+	}
+	if ( nHeight == 0 )
+	{
+		assert( yDst < m_dimSize.y ) ;
+		nHeight = m_dimSize.y - yDst ;
+	}
 	assert( m_commitCuda ) ;
 	assert( m_cudaMemory != nullptr ) ;
 	assert( nnSrcBuf.m_cudaMemory != nullptr ) ;
-	assert( m_dimSize.n == nnSrcBuf.m_dimSize.n ) ;
+	assert( xDst + nWidth <= m_dimSize.x ) ;
+	assert( yDst + nHeight <= m_dimSize.y ) ;
 	assert( iDstChannel + nChannelCount <= m_dimSize.z ) ;
 	assert( iSrcChannel + nChannelCount <= nnSrcBuf.m_dimSize.z ) ;
 	nncuda_ShiftAddMemory
-		( m_cudaMemory->GetDevicePtr(), m_dimSize, iDstChannel,
+		( m_cudaMemory->GetDevicePtr(), m_dimSize,
+			xDst, yDst, iDstChannel, nWidth, nHeight,
 			nnSrcBuf.m_cudaMemory->GetDevicePtr(), nnSrcBuf.m_dimSize,
 			xShift, yShift, iSrcChannel, nChannelCount, scaleSrc, stream ) ;
 }

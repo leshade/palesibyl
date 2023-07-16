@@ -30,7 +30,7 @@ int Palesibyl::cudaInit( int devID )
 
 	if ( nDevCount == 0 )
 	{
-		TRACE( "Not found CUDA device.\n" ) ;
+		TRACE( "Not found CUDA device.\r\n" ) ;
 		return	-1 ;
 	}
 	if ( devID < 0 )
@@ -49,28 +49,28 @@ int Palesibyl::cudaInit( int devID )
 	cudaVerify( cudaDeviceGetAttribute( &minor, cudaDevAttrComputeCapabilityMinor, devID ) ) ;
 	if ( computeMode == cudaComputeModeProhibited )
 	{
-		TRACE( "Error: device is running in cudaComputeModeProhibited.\n" ) ;
+		TRACE( "Error: device is running in cudaComputeModeProhibited.\r\n" ) ;
 		return	-1 ;
 	}
 	if ( major < 1 )
 	{
-		TRACE( "gpuDeviceInit(): GPU device does not support CUDA.\n" ) ;
+		TRACE( "gpuDeviceInit(): GPU device does not support CUDA.\r\n" ) ;
 		return	-1 ;
 	}
 
 	// デバイス選択
 	cudaVerify( cudaSetDevice(devID) ) ;
-	TRACE( "CUDA device [%d]: version %d.%d\n", devID, major, minor ) ;
+	TRACE( "CUDA device [%d]: version %d.%d\r\n", devID, major, minor ) ;
 
 	g_cudaDevice = devID ;
 
 	if ( cudaVerify( cudaGetDeviceProperties( &g_cudaDevProp, devID ) ) )
 	{
-		TRACE( "    %s\n", g_cudaDevProp.name ) ;
-		TRACE( "        VRAM global memory: %ld [MB]\n", (long)(g_cudaDevProp.totalGlobalMem/(1024*1204)) ) ;
-		TRACE( "        VRAM const memory: %ld [KB]\n", (long) (g_cudaDevProp.totalConstMem/1024) ) ;
-		TRACE( "        max shared memory: %d [KB]\n", (int) (g_cudaDevProp.sharedMemPerBlock/1024) ) ;
-		TRACE( "        max thread count: %d\n", g_cudaDevProp.maxThreadsPerBlock ) ;
+		TRACE( "    %s\r\n", g_cudaDevProp.name ) ;
+		TRACE( "        VRAM global memory: %ld [MB]\r\n", (long)(g_cudaDevProp.totalGlobalMem/(1024*1204)) ) ;
+		TRACE( "        VRAM const memory: %ld [KB]\r\n", (long) (g_cudaDevProp.totalConstMem/1024) ) ;
+		TRACE( "        max shared memory: %d [KB]\r\n", (int) (g_cudaDevProp.sharedMemPerBlock/1024) ) ;
+		TRACE( "        max thread count: %d\r\n", g_cudaDevProp.maxThreadsPerBlock ) ;
 	}
 
 	return	devID ;
@@ -97,16 +97,16 @@ bool Palesibyl::cudaIsAvailable( void )
 //////////////////////////////////////////////////////////////////////////////
 bool Palesibyl::cudaVerify( cudaError_t result )
 {
-	assert( result == cudaSuccess ) ;
 	if ( result == cudaSuccess )
 	{
 		return	true ;
 	}
-	TRACE( "CUDA error: %08X : %s\n", result, cudaGetErrorName( result ) ) ;
-
-	std::lock_guard<std::mutex>	lock( g_cudaMutex ) ;
-	s_cudaErrorHandler( result ) ;
-
+	TRACE( "CUDA error: %08X : %s\r\n", result, cudaGetErrorName( result ) ) ;
+	{
+		std::lock_guard<std::mutex>	lock( g_cudaMutex ) ;
+		s_cudaErrorHandler( result ) ;
+	}
+	assert( result == cudaSuccess ) ;
 	return	false ;
 }
 

@@ -22,7 +22,9 @@ void nncuda_MaskPattern
 // サンプルを移動しながらチャネルをコピー
 // （出力先のシフト元が範囲外の場合、ソースをシフトせずにコピー）
 void nncuda_ShiftMoveMemory
-	( float * pDst, NNBufDim dimDst, size_t iDstChannel,
+	( float * pDst, NNBufDim dimDst,
+		size_t xDstOffset, size_t yDstOffset, size_t iDstChannel,
+		size_t nDstWidth, size_t nDstHeight,
 		float * pSrc, NNBufDim dimSrc, int xShift, int yShift,
 		size_t iSrcChannel, size_t nChannelCount,
 		float scaleFactor, cudaStream_t stream ) ;
@@ -30,7 +32,9 @@ void nncuda_ShiftMoveMemory
 // サンプルを移動しながらチャネルを加算
 // （出力先のシフト元が範囲外の場合、ソースをシフトせずに加算）
 void nncuda_ShiftAddMemory
-	( float * pDst, NNBufDim dimDst, size_t iDstChannel,
+	( float * pDst, NNBufDim dimDst,
+		size_t xDstOffset, size_t yDstOffset, size_t iDstChannel,
+		size_t nDstWidth, size_t nDstHeight,
 		float * pSrc, NNBufDim dimSrc, int xShift, int yShift,
 		size_t iSrcChannel, size_t nChannelCount,
 		float scaleFactor, cudaStream_t stream ) ;

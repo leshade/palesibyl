@@ -8,7 +8,7 @@
 #endif
 
 #include "nn_cuda_def.h"
-
+#include <stdarg.h>
 
 namespace	Palesibyl
 {
@@ -23,13 +23,13 @@ namespace	Palesibyl
 	#else
 		inline void TRACE( const char * pszTrace, ... )
 		{
-			char	szBuf[0x1000] ;
 			va_list	vl ;
 			va_start( vl, pszTrace ) ;
 
 			#if	defined(_WIN32) || defined(_WIN64) || defined(WIN32) || defined(WIN64)
-				::_vsnprintf_s( szBuf, 0x1000, 0xFFF, pszTrace, vl ) ;
-				::OutputDebugString( szBuf ) ;
+				char	szBuf[0x1000] ;
+				_vsnprintf_s( szBuf, 0x1000, 0xFFF, pszTrace, vl ) ;
+				OutputDebugString( szBuf ) ;
 			#else
 				vprintf( pszTrace, vl ) ;
 			#endif
@@ -109,7 +109,7 @@ public:
 				if ( g_cudaAllocDevMemory > g_cudaMaxAllocDevMemory )
 				{
 					g_cudaMaxAllocDevMemory = g_cudaAllocDevMemory ;
-					TRACE( "max used CUDA device memory : %d[MB]\n",
+					TRACE( "max used CUDA device memory : %d[MB]\r\n",
 							(size_t) (g_cudaMaxAllocDevMemory / (1024*1024)) ) ;
 				}
 			}

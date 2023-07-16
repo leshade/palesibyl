@@ -41,7 +41,7 @@ bool RIFFFile::Open( const char * pszFilePath )
 	}
 	catch ( const std::exception& e )
 	{
-		TRACE( "exception at RIFFFile::Open: %s\n", e.what() ) ;
+		TRACE( "exception at RIFFFile::Open: %s\r\n", e.what() ) ;
 		return	false ;
 	}
 
@@ -69,7 +69,7 @@ bool RIFFFile::Create( const char * pszFilePath )
 	}
 	catch ( const std::exception& e )
 	{
-		TRACE( "exception at RIFFFile::Create: %s\n", e.what() ) ;
+		TRACE( "exception at RIFFFile::Create: %s\r\n", e.what() ) ;
 		return	false ;
 	}
 

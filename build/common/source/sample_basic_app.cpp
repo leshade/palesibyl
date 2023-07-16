@@ -71,7 +71,7 @@ std::unique_ptr<std::ofstream>
 	}
 	catch ( const std::exception& e )
 	{
-		TRACE( "exception at PalesibylBasicApp::AppShell::OpenLogFile: %s\n", e.what() ) ;
+		TRACE( "exception at PalesibylBasicApp::AppShell::OpenLogFile: %s\r\n", e.what() ) ;
 	}
 	return	nullptr ;
 }

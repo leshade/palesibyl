@@ -1071,7 +1071,7 @@ void NNMLPShell::OnLearningProgress
 
 	case	learningOneData:
 	case	learningEndMiniBatch:
-		TRACE( "epoch: %d/%d, batch: %d/%d, rep: %d/%d (%d/%d), loss=%f  [%ld ms]  (delta=%f)\n",
+		TRACE( "epoch: %d/%d, batch: %d/%d, rep: %d/%d (%d/%d), loss=%f  [%ld ms]  (delta=%f)\r\n",
 				(int) lpi.iLoopEpoch+1, (int) lpi.nEpochCount,
 				(int) lpi.iInBatch+1, (int) lpi.nCountInBatch,
 				(int) lpi.iSubLoop+1, (int) lpi.nSubLoopCount,
@@ -1761,7 +1761,7 @@ std::shared_ptr<NNBuffer>
 	}
 	catch ( const std::exception& e )
 	{
-		TRACE( "exception at SaveModel: %s\n", e.what() ) ;
+		TRACE( "exception at SaveModel: %s\r\n", e.what() ) ;
 	}
 	return	MakeOneHot( NNMLPShell::Classifier::classFalse ) ;
 }
@@ -1910,7 +1910,7 @@ bool NNMLPShellFileClassIterator::SaveToFile
 	}
 	catch ( const std::exception& e )
 	{
-		TRACE( "exception at SaveToFile: %s\n", e.what() ) ;
+		TRACE( "exception at SaveToFile: %s\r\n", e.what() ) ;
 		return	false ;
 	}
 	return	true ;
