@@ -59,7 +59,7 @@
 
 * Linux  
   ビルドには CMake 及び C++ コンパイラ類、NVIDIA CUDA Toolkit、OpenCV（画像コーデックとして）が必要です。  
-  （NVIDIA CUDA Toolkit 12 でビルドを確認しています。11 の nvcc ではビルドできませんでした）
+  （Ubuntu on WSL2 環境<sup>※</sup>、NVIDIA CUDA Toolkit 12 でビルドを確認しています。11 の nvcc では標準ライブラリヘッダ内でエラーが出てビルドできませんでした）
 
   CMake で `build/CMakeLists.txt` からビルドしてください。
 
@@ -68,6 +68,8 @@
   $ cmake .
   $ make
   ```
+
+  <sup>※WSLではCUDAで確保できるデバイスメモリの上限が物理メモリの半分に制限されるらしいので、WSLを使わずWindowsで直接動かしたほうが良いです。</sup>
 
 
 ## サンプルコード
