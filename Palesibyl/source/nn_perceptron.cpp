@@ -2266,10 +2266,11 @@ void NNPerceptron::LayerDeltaBack
 			}
 			*/
 			NNBufDim	dimRef = bufDstDelta.GetSize() ;
+			NNBufDim	dimSrc = bufThis.bufOutDelta.GetSize() ;
 			bufDstDelta.Commit() ;
 			//
-			assert( dimRef.x > cn.xOffset*2 ) ;
-			assert( dimRef.y > cn.yOffset*2 ) ;
+			assert( dimRef.x >= dimSrc.x + cn.xOffset ) ;
+			assert( dimRef.y >= dimSrc.y + cn.yOffset ) ;
 			if ( cn.nChannels == 0 )
 			{
 				assert( cn.iChannel == 0 ) ;
@@ -2286,8 +2287,7 @@ void NNPerceptron::LayerDeltaBack
 				assert( dimRef.z >= cn.iChannel + cn.nChannels ) ;
 				AddChannelTo
 					( bufDstDelta, cn.xOffset, cn.yOffset, cn.iChannel,
-						dimRef.x - cn.xOffset*2,
-						dimRef.y - cn.yOffset*2, cn.nChannels,
+						dimSrc.x, dimSrc.y, cn.nChannels,
 						bufThis.bufOutDelta, - cn.iDelay, chNext,
 						scaleDelta * scaleRef ) ;
 				chNext += cn.nChannels ;
