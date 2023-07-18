@@ -48,7 +48,7 @@
   ```
   等とすると便利です。
 
-* ライブラリ  
+* ライブラリ（Windows）  
   デバッグ用は `palesibyl_db.lib`、リリース用は `palesibyl.lib` をリンクします。  
   以下のように `palesibyl_lib.h` をインクルードすると便利です。  
   ```cpp
@@ -180,12 +180,16 @@
   ほぼ CLI から NNMLPShell クラスへパラメータを受け渡しているだけです。
 
 
-* 学習の実行と損失グラフ表示
+* 学習の実行と損失グラフ表示  
   ```bat
   > learn.bat
   ```
-  各サンプル実行用ディレクトリの learn.bat を実行すると学習が開始されます。  
-  learn.bat では、ログファイルを出力するとともに Python スクリプトでログファイルを逐次リアルタイムにグラフ表示させることができます。
+  又は
+  ```bash
+  $ sh learn.sh
+  ```
+  各サンプル実行用ディレクトリの `learn.bat` (Windows)、又は `learn.sh` (Linux) を実行すると学習が開始されます。  
+  learn.bat / learn.sh では、ログファイルを出力するとともに Python スクリプトでログファイルを逐次リアルタイムにグラフ表示させることができます。
 
   1. Python をインストールし、python.exe のファイルパスを環境変数 PYTHON_BIN_PATH に設定  
      ex. C:\Users\user_name\AppData\Local\Programs\Python\Python39\python.exe
