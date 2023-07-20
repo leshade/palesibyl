@@ -69,10 +69,11 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
     <Lib>
-      <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
+      <OutputFile>..\..\Palesibyl\library\palesibyl_db.lib</OutputFile>
     </Lib>
     <PostBuildEvent>
-      <Command>copy $(OutDir)$(TargetName)$(TargetExt) ..\..\Palesibyl\library\palesibyl_db.lib</Command>
+      <Command>
+      </Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -100,10 +101,11 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
     <Lib>
-      <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
+      <OutputFile>..\..\Palesibyl\library\palesibyl.lib</OutputFile>
     </Lib>
     <PostBuildEvent>
-      <Command>copy $(OutDir)$(TargetName)$(TargetExt) ..\..\Palesibyl\library\palesibyl.lib</Command>
+      <Command>
+      </Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
