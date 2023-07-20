@@ -191,7 +191,7 @@
   各サンプル実行用ディレクトリの `learn.bat` (Windows)、又は `learn.sh` (Linux) を実行すると学習が開始されます。  
   learn.bat / learn.sh では、ログファイルを出力するとともに Python スクリプトでログファイルを逐次リアルタイムにグラフ表示させることができます。
 
-  1. Python をインストールし、python.exe のファイルパスを環境変数 PYTHON_BIN_PATH に設定  
+  1. Python をインストールし、python.exe のファイルパスを環境変数 PYTHON_BIN_PATH に設定 (Windows)  
      ex. C:\Users\user_name\AppData\Local\Programs\Python\Python39\python.exe
   2. numpy, matplotlib, pandas, watchdog をインストール
      ```bat
@@ -200,7 +200,7 @@
 	 > pip install pandas
 	 > pip install watchdog
 	 ```
-  3. learn.bat を実行
+  3. learn.bat 又は learn.sh を実行
 
 
 * 学習の中断と継続

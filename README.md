@@ -42,6 +42,7 @@
 
 - `README.md` - このファイル
 - `LICENSE` - ライセンス情報
+- [`build/README.md`](./build/README.md) - より詳細な README
 - `build/Palesibyl/` - Visual Studio 用ソリューション
 - `Palesibyl/include/` - C++ 用ヘッダファイル
 - `Palesibyl/library/` - C++ 用ライブラリファイル
