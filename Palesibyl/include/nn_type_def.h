@@ -41,6 +41,25 @@ struct	NNBufDim
 	}
 } ;
 
+struct	NNBufDimCompareLess
+{
+	bool operator ()(const NNBufDim& x, const NNBufDim& y) const
+	{
+		return	(x.n < y.n)
+				|| ((x.n == y.n)
+					&& ((x.z < y.z)
+						|| ((x.z == y.z)
+							&& ((x.y < y.y)
+								|| ((x.y == y.y)
+									&& (x.x < y.x) )
+								)
+							)
+						)
+					) ;
+	}
+} ;
+
+
 
 //////////////////////////////////////////////////////////////////////////////
 // 損失関数ハイパーパラメータ

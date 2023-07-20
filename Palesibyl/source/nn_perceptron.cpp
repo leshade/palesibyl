@@ -27,7 +27,8 @@ size_t NNPerceptron::Buffer::GetBufferBytes( void ) const
 
 size_t NNPerceptron::Buffer::GetCudaBufferBytes( void ) const
 {
-	return	bufMatrix.GetCudaBufferBytes()
+	size_t	nBytes =
+			bufMatrix.GetCudaBufferBytes()
 			+ bufDropoutMask.GetCudaBufferBytes()
 			+ bufInput.GetCudaBufferBytes()
 			+ bufInAct.GetCudaBufferBytes()
@@ -39,18 +40,41 @@ size_t NNPerceptron::Buffer::GetCudaBufferBytes( void ) const
 			+ bufOutDelta.GetCudaBufferBytes()
 			+ bufGradient.GetCudaBufferBytes()
 			+ normWorkBuf.GetCudaBufferBytes() ;
+	if ( linearActivation )
+	{
+		nBytes -= bufOutput.GetBufferBytes() ;
+		nBytes -= bufInDelta.GetBufferBytes() ;
+	}
+	if ( sharedInputBuf )
+	{
+		nBytes -= bufInput.GetBufferBytes() ;
+	}
+	return	nBytes ;
 }
 
 size_t NNPerceptron::Buffer::EstimateCudaBufferBytes( void ) const
 {
 	size_t	nBytes = GetBufferBytes() ;
+	if ( fixedMatrix )
+	{
+		nBytes -= bufGradient.GetBufferBytes() ;
+	}
+	if ( linearActivation )
+	{
+		nBytes -= bufOutput.GetBufferBytes() ;
+		nBytes -= bufInDelta.GetBufferBytes() ;
+	}
+	if ( sharedInputBuf )
+	{
+		nBytes -= bufInput.GetBufferBytes() ;
+	}
 	if ( !reqDelay )
 	{
 		nBytes -= bufDelay.GetBufferBytes() ;
 	}
 	if ( !reqDelta2 )
 	{
-		nBytes -= bufPrevDelta.GetBufferBytes() ;
+		nBytes -= bufPrevDelta2.GetBufferBytes() ;
 	}
 	return	nBytes ;
 }
@@ -765,6 +789,9 @@ void NNPerceptron::ResetBuffer( NNPerceptron::Buffer& bufThis, size_t iThisLayer
 	bufThis.reqDelay = false ;
 	bufThis.reqDelta2 = false ;
 	bufThis.transMatrix = false ;
+	bufThis.fixedMatrix = false ;
+	bufThis.linearActivation = false ;
+	bufThis.sharedInputBuf = false ;
 	bufThis.iThisLayer = iThisLayer ;
 	bufThis.nRefOut = 0 ;
 	bufThis.nRefOut2 = 0 ;
@@ -785,7 +812,7 @@ void NNPerceptron::ResetBuffer( NNPerceptron::Buffer& bufThis, size_t iThisLayer
 
 void NNPerceptron::PrepareBuffer
 	( Buffer& bufThis, const NNBufDim& dimSrc,
-		const NNPerceptron::BufferArray& bufArray,
+		NNPerceptron::BufferArray& bufArray,
 		const NNLoopStream& stream,
 		size_t iThisLayer, uint32_t flagsBuffer, bool flagMemoryCommit ) const
 {
@@ -832,17 +859,25 @@ void NNPerceptron::PrepareBuffer
 	else
 	{
 		bufThis.inSrc = inputTemporary ;
-		bufThis.bufInput.Allocate( dimSrc.x, dimSrc.y, dimSrc.z, 0, cudaDevFlags ) ;
+		//
+		SharedBufferMap::const_iterator iter = bufArray.m_mapInputBuf.find(dimSrc) ;
+		if ( iter != bufArray.m_mapInputBuf.end() )
+		{
+			bufThis.sharedInputBuf = true ;
+			bufThis.bufInput.DuplicateBuffer( *(iter->second) ) ;
+		}
+		else
+		{
+			std::shared_ptr<NNBuffer>	pSharedBuf = std::make_shared<NNBuffer>() ;
+			pSharedBuf->Create( dimSrc.x, dimSrc.y, dimSrc.z, 0, cudaDevFlags ) ;
+			bufArray.m_mapInputBuf.insert( std::make_pair(dimSrc,pSharedBuf) ) ;
+			bufThis.bufInput.DuplicateBuffer( *pSharedBuf ) ;
+		}
 	}
 
 	bufThis.forLearning = ((flagsBuffer & bufferForLearning) != 0) ;
-//	bufThis.reqDelay = false ;
-//	bufThis.reqDelta2 = false ;
-//	bufThis.transMatrix = false ;
-//	bufThis.iThisLayer = iThisLayer ;
-//	bufThis.nRefOut = 0 ;
-//	bufThis.nRefOut2 = 0 ;
-//	bufThis.iRefMostRearLayer = iThisLayer + 1 ;
+	bufThis.fixedMatrix = IsMatrixFixed() ;
+	bufThis.linearActivation = m_activation->IsLinearActivation() ;
 
 	bufThis.bufMatrix.Allocate
 		( m_matrix.GetColumnCount(),
@@ -857,7 +892,16 @@ void NNPerceptron::PrepareBuffer
 	bufThis.bufInAct.Allocate( dimInner.x, dimInner.y, dimInner.z, 0, flagsOutBuf ) ;
 
 	NNBufDim	dimOut = CalcOutputDim( dimSrc ) ;
-	bufThis.bufOutput.Allocate( dimOut.x, dimOut.y, dimOut.z, 0, flagsOutBuf ) ;
+	if ( bufThis.linearActivation )
+	{
+		assert( dimInner == dimOut ) ;
+		bufThis.bufInAct.Commit() ;
+		bufThis.bufOutput.DuplicateBuffer( bufThis.bufInAct ) ;
+	}
+	else
+	{
+		bufThis.bufOutput.Allocate( dimOut.x, dimOut.y, dimOut.z, 0, flagsOutBuf ) ;
+	}
 	bufThis.bufDelay.Allocate( dimOut.x, dimOut.y, dimOut.z, 0, flagsOutBuf ) ;
 
 	if ( m_normalizer != nullptr )
@@ -875,9 +919,20 @@ void NNPerceptron::PrepareBuffer
 			bufThis.bufDropoutMask.Fill( 1.0f ) ;
 		}
 
-		bufThis.bufInDelta.Allocate( dimInner.x, dimInner.y, dimInner.z, 0, cudaDevFlags ) ;
 		bufThis.bufPrevDelta.Allocate( dimOut.x, dimOut.y, dimOut.z, 0, cudaDevFlags ) ;
 		bufThis.bufPrevDelta2.Allocate( dimOut.x, dimOut.y, dimOut.z, 0, cudaDevFlags ) ;
+
+		if ( bufThis.linearActivation )
+		{
+			assert( dimInner == dimOut ) ;
+			bufThis.bufPrevDelta.Commit() ;
+			bufThis.bufInDelta.DuplicateBuffer( bufThis.bufPrevDelta ) ;
+		}
+		else
+		{
+			bufThis.bufInDelta.Allocate
+				( dimInner.x, dimInner.y, dimInner.z, 0, cudaDevFlags ) ;
+		}
 
 		if ( stream.m_useCuda )
 		{
@@ -1253,7 +1308,18 @@ void NNPerceptron::cpuPrediction
 	assert( !bufThis.bufDropoutMask.IsCommitted() || (bufThis.bufDropoutMask.GetSize().z == dimOutput.z) ) ;
 
 	bufThis.bufInAct.Commit() ;
-	bufThis.bufOutput.Commit() ;
+	if ( bufThis.linearActivation )
+	{
+		assert( bufThis.bufInAct.IsEqualBuffer( bufThis.bufOutput ) ) ;
+	}
+	else
+	{
+		bufThis.bufOutput.Commit() ;
+	}
+
+	const bool	flagDropout = !(m_behavior & (behaviorFixed | behaviorNoDropout))
+								&& (m_dropout != 0.0f)
+								&& bufThis.bufDropoutMask.IsCommitted() ;
 
 	if ( m_normalizer != nullptr )
 	{
@@ -1290,34 +1356,34 @@ void NNPerceptron::cpuPrediction
 			( bufThis.bufInAct, bufThis.normWorkBuf, stream, xLeftBounds ) ;
 
 		// 活性化関数とドロップアウト
-		stream.m_ploop.Loop( 0, dimOutput.y, [&]( size_t iThread, size_t y )
+		if ( !bufThis.linearActivation || flagDropout )
 		{
-			const float *			pInputBuf = bufInput.pInput->GetConstBuffer() ;
-			const float *			pDropout = !(m_behavior & (behaviorFixed | behaviorNoDropout))
-												&& (m_dropout != 0.0f)
-												&& bufThis.bufDropoutMask.IsCommitted()
-												? bufThis.bufDropoutMask.GetConstBuffer() : nullptr ;
-			const size_t			nSrcChannels = m_matrix.GetColumnCount() ;
-			float *					pInAct = bufThis.bufInAct.GetBufferAt( xLeftBounds, y ) ;
-			float *					pOutput = bufThis.bufOutput.GetBufferAt( xLeftBounds, y ) ;
-			const size_t			nDepthwise = GetActivationDepthwise() ;
-			NNActivationFunction *	pActivation = m_activation.get() ;
-
-			for ( size_t x = xLeftBounds; x < dimOutput.x; x ++ )
+			stream.m_ploop.Loop( 0, dimOutput.y, [&]( size_t iThread, size_t y )
 			{
-				pActivation->cpuFunction( pOutput, pInAct, dimInAct.z, nDepthwise ) ;
+				const float *			pInputBuf = bufInput.pInput->GetConstBuffer() ;
+				const float *			pDropout = flagDropout ? bufThis.bufDropoutMask.GetConstBuffer() : nullptr ;
+				const size_t			nSrcChannels = m_matrix.GetColumnCount() ;
+				float *					pInAct = bufThis.bufInAct.GetBufferAt( xLeftBounds, y ) ;
+				float *					pOutput = bufThis.bufOutput.GetBufferAt( xLeftBounds, y ) ;
+				const size_t			nDepthwise = GetActivationDepthwise() ;
+				NNActivationFunction *	pActivation = m_activation.get() ;
 
-				if ( pDropout != nullptr )
+				for ( size_t x = xLeftBounds; x < dimOutput.x; x ++ )
 				{
-					for ( size_t i = 0; i < dimOutput.z; i ++ )
+					pActivation->cpuFunction( pOutput, pInAct, dimInAct.z, nDepthwise ) ;
+
+					if ( pDropout != nullptr )
 					{
-						pOutput[i] *= pDropout[i] ;
+						for ( size_t i = 0; i < dimOutput.z; i ++ )
+						{
+							pOutput[i] *= pDropout[i] ;
+						}
 					}
+					pInAct += dimInAct.z ;
+					pOutput += dimOutput.z ;
 				}
-				pInAct += dimInAct.z ;
-				pOutput += dimOutput.z ;
-			}
-		} ) ;
+			} ) ;
+		}
 	}
 	else
 	{
@@ -1325,10 +1391,7 @@ void NNPerceptron::cpuPrediction
 		stream.m_ploop.Loop( 0, dimOutput.y, [&]( size_t iThread, size_t y )
 		{
 			const float *			pInputBuf = bufInput.pInput->GetConstBuffer() ;
-			const float *			pDropout = !(m_behavior & (behaviorFixed | behaviorNoDropout))
-												&& (m_dropout != 0.0f)
-												&& bufThis.bufDropoutMask.IsCommitted()
-												? bufThis.bufDropoutMask.GetConstBuffer() : nullptr ;
+			const float *			pDropout = flagDropout ? bufThis.bufDropoutMask.GetConstBuffer() : nullptr ;
 			const size_t			nSrcChannels = m_matrix.GetColumnCount() ;
 			float *					pInAct = bufThis.bufInAct.GetBufferAt( xLeftBounds, y ) ;
 			float *					pOutput = bufThis.bufOutput.GetBufferAt( xLeftBounds, y ) ;
@@ -1383,7 +1446,14 @@ void NNPerceptron::cudaPrediction
 	bufThis.bufMatrix.CommitCuda() ;
 	bufInput.pInput->CommitCuda() ;
 	bufThis.bufInAct.CommitCuda() ;
-	bufThis.bufOutput.CommitCuda() ;
+	if ( bufThis.linearActivation )
+	{
+		assert( bufThis.bufInAct.IsEqualBuffer( bufThis.bufOutput ) ) ;
+	}
+	else
+	{
+		bufThis.bufOutput.CommitCuda() ;
+	}
 
 	if ( !bufThis.transMatrix )
 	{
@@ -1414,11 +1484,14 @@ void NNPerceptron::cudaPrediction
 			( bufThis.bufInAct, bufThis.normWorkBuf, stream, xLeftBounds ) ;
 	}
 
-	m_activation->cudaFunction
-		( bufThis.bufOutput.GetCudaPtr(), dimOutput,
-			bufThis.bufInAct.GetCudaPtr(), dimInAct,
-			xLeftBounds, GetActivationDepthwise(), stream.m_cudaStream ) ;
-	stream.m_cudaStream.VerifySync() ;
+	if ( !bufThis.linearActivation )
+	{
+		m_activation->cudaFunction
+			( bufThis.bufOutput.GetCudaPtr(), dimOutput,
+				bufThis.bufInAct.GetCudaPtr(), dimInAct,
+				xLeftBounds, GetActivationDepthwise(), stream.m_cudaStream ) ;
+		stream.m_cudaStream.VerifySync() ;
+	}
 
 	if ( !(m_behavior & (behaviorFixed | behaviorNoDropout))
 		&& (m_dropout != 0.0f) && bufThis.bufDropoutMask.IsCommitted() )
@@ -1846,31 +1919,38 @@ void NNPerceptron::cpuActivationDeltaBack
 
 	NNActivationFunction *	pActivation = m_activation.get() ;
 
-	bufThis.bufInDelta.Commit() ;
-
-	stream.m_ploop.Loop( 0, dimPrevDelta.y, [&]( size_t iThread, size_t y )
+	if ( !bufThis.linearActivation )
 	{
-		const float *	pSrcDelta = bufThis.bufPrevDelta.GetConstBufferAt( 0, y ) ;
-		float *			pDstDelta = bufThis.bufInDelta.GetBufferAt( 0, y ) ;
-		const float *	pInAct = bufThis.bufInAct.GetConstBufferAt( 0, y ) ;
-		const float *	pOutput = bufThis.bufOutput.GetConstBufferAt( 0, y ) ;
-		float *			pDiffAct = bufWorks.at(iThread).vecDiff.data() ;
-		const size_t	nDepthwise = GetActivationDepthwise() ;
+		bufThis.bufInDelta.Commit() ;
 
-		assert( bufWorks.at(iThread).vecDiff.size() >= dimInAct.z ) ;
-
-		for ( size_t x = 0; x < dimPrevDelta.x; x ++ )
+		stream.m_ploop.Loop( 0, dimPrevDelta.y, [&]( size_t iThread, size_t y )
 		{
-			pActivation->cpuDifferential( pDiffAct, pInAct, pOutput, dimInAct.z, nDepthwise ) ;
-			pActivation->cpuDeltaBack( pDstDelta, pSrcDelta, pDiffAct, dimInAct.z, nDepthwise ) ;
-			pSrcDelta += dimPrevDelta.z ;
-			pDstDelta += dimInDelta.z ;
-			pInAct += dimInAct.z ;
-			pOutput += dimOutput.z ;
-		}
-	} ) ;
+			const float *	pSrcDelta = bufThis.bufPrevDelta.GetConstBufferAt( 0, y ) ;
+			float *			pDstDelta = bufThis.bufInDelta.GetBufferAt( 0, y ) ;
+			const float *	pInAct = bufThis.bufInAct.GetConstBufferAt( 0, y ) ;
+			const float *	pOutput = bufThis.bufOutput.GetConstBufferAt( 0, y ) ;
+			float *			pDiffAct = bufWorks.at(iThread).vecDiff.data() ;
+			const size_t	nDepthwise = GetActivationDepthwise() ;
 
-	bufThis.bufInDelta.CheckOverun() ;
+			assert( bufWorks.at(iThread).vecDiff.size() >= dimInAct.z ) ;
+
+			for ( size_t x = 0; x < dimPrevDelta.x; x ++ )
+			{
+				pActivation->cpuDifferential( pDiffAct, pInAct, pOutput, dimInAct.z, nDepthwise ) ;
+				pActivation->cpuDeltaBack( pDstDelta, pSrcDelta, pDiffAct, dimInAct.z, nDepthwise ) ;
+				pSrcDelta += dimPrevDelta.z ;
+				pDstDelta += dimInDelta.z ;
+				pInAct += dimInAct.z ;
+				pOutput += dimOutput.z ;
+			}
+		} ) ;
+
+		bufThis.bufInDelta.CheckOverun() ;
+	}
+	else
+	{
+		assert( bufThis.bufInDelta.IsEqualBuffer(bufThis.bufPrevDelta) ) ;
+	}
 
 	if ( m_normalizer != nullptr )
 	{
@@ -1895,15 +1975,22 @@ void NNPerceptron::cudaActivationDeltaBack
 	assert( dimOutput.y == dimInDelta.y ) ;
 	assert( dimOutput.z == m_activation->CalcOutputChannels(dimInAct.z,GetActivationDepthwise()) ) ;
 
-	bufThis.bufInDelta.CommitCuda() ;
+	if ( !bufThis.linearActivation )
+	{
+		bufThis.bufInDelta.CommitCuda() ;
 
-	m_activation->cudaBackDelta
-		( bufThis.bufInDelta.GetCudaPtr(), dimInDelta,
-			bufThis.bufPrevDelta.GetCudaPtr(), dimPrevDelta,
-			bufThis.bufInAct.GetCudaPtr(), dimInAct,
-			bufThis.bufOutput.GetCudaPtr(), dimOutput,
-			GetActivationDepthwise(), stream.m_cudaStream ) ;
-	stream.m_cudaStream.VerifySync() ;
+		m_activation->cudaBackDelta
+			( bufThis.bufInDelta.GetCudaPtr(), dimInDelta,
+				bufThis.bufPrevDelta.GetCudaPtr(), dimPrevDelta,
+				bufThis.bufInAct.GetCudaPtr(), dimInAct,
+				bufThis.bufOutput.GetCudaPtr(), dimOutput,
+				GetActivationDepthwise(), stream.m_cudaStream ) ;
+		stream.m_cudaStream.VerifySync() ;
+	}
+	else
+	{
+		assert( bufThis.bufInDelta.IsEqualBuffer(bufThis.bufPrevDelta) ) ;
+	}
 
 	if ( m_normalizer != nullptr )
 	{
@@ -2460,6 +2547,13 @@ NNFixedPerceptron::NNFixedPerceptron
 NNFixedPerceptron::NNFixedPerceptron( const NNFixedPerceptron& fxp )
 	: NNPerceptron( fxp )
 {
+}
+
+// 動作フラグ（固定値行列）
+//////////////////////////////////////////////////////////////////////////////
+bool NNFixedPerceptron::IsMatrixFixed( void ) const
+{
+	return	true ;
 }
 
 // 勾配反映後のバッファ処理

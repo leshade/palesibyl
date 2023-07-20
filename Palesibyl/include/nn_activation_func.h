@@ -34,6 +34,8 @@ public:
 public:
 	// 関数名
 	virtual const char * GetFunctionName( void) const = 0 ;
+	// チャネル変換のない線形関数
+	virtual bool IsLinearActivation( void ) const = 0 ;
 	// 最終層で使用できないか？
 	virtual bool MustNotBeLastLayer( void ) const = 0 ;
 	// 最終層でしか使用できないか？
@@ -99,6 +101,11 @@ public:
 	virtual const char * GetFunctionName( void) const
 	{
 		return	A::FunctionName ;
+	}
+	// チャネル変換のない線形関数
+	virtual bool IsLinearActivation( void ) const
+	{
+		return	false ;
 	}
 	// 最終層で使用できないか？
 	virtual bool MustNotBeLastLayer( void ) const
@@ -222,9 +229,23 @@ public:
 } ;
 
 class	NNActivationLinear
-	: public NNActivation<NNAFunctionLinear, NNLossFunctionMSE> {} ;
+	: public NNActivation<NNAFunctionLinear, NNLossFunctionMSE>
+{
+public:
+	virtual bool IsLinearActivation( void ) const
+	{
+		return	true ;
+	}
+} ;
 class	NNActivationLinearMAE
-	: public NNActivation<NNAFunctionLinear, NNLossFunctionMAE> {} ;
+	: public NNActivation<NNAFunctionLinear, NNLossFunctionMAE>
+{
+public:
+	virtual bool IsLinearActivation( void ) const
+	{
+		return	true ;
+	}
+} ;
 class	NNActivationReLU
 	: public NNActivation<NNAFunctionReLU, NNLossFunctionMSE> {} ;
 class	NNActivationSigmoid

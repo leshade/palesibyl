@@ -141,6 +141,29 @@ void NNBuffer::SwapBuffer( NNBuffer& bufSwap )
 	bufSwap.m_cudaMemory = cudaMemory ;
 }
 
+// 所有バッファ複製
+//////////////////////////////////////////////////////////////////////////////
+void NNBuffer::DuplicateBuffer( const NNBuffer& bufDup )
+{
+	m_dimSize = bufDup.m_dimSize ;
+	m_commitBuf = bufDup.m_commitBuf ;
+	m_commitCuda = bufDup.m_commitCuda ;
+	m_invalidCuda = bufDup.m_invalidCuda ;
+	m_cudaFlags = bufDup.m_cudaFlags ;
+	m_buffer = bufDup.m_buffer ;
+	m_cudaMemory = bufDup.m_cudaMemory ;
+}
+
+// 同一バッファ
+//////////////////////////////////////////////////////////////////////////////
+bool NNBuffer::IsEqualBuffer( const NNBuffer& buf ) const
+{
+	assert( ((m_buffer == buf.m_buffer) && (m_cudaMemory == buf.m_cudaMemory))
+			|| (((m_buffer != buf.m_buffer) || (m_buffer == nullptr) || (buf.m_buffer == nullptr))
+				&& ((m_cudaMemory != buf.m_cudaMemory) || (m_cudaMemory == nullptr) || (buf.m_cudaMemory == nullptr))) ) ;
+	return	(m_buffer == buf.m_buffer) && (m_cudaMemory == buf.m_cudaMemory) ;
+}
+
 // バッファ解放
 //////////////////////////////////////////////////////////////////////////////
 void NNBuffer::Free( void )
@@ -195,7 +218,6 @@ void NNBuffer::Uncommit( void )
 	{
 		assert( m_buffer != nullptr ) ;
 		CheckOverun() ;
-		m_buffer->clear() ;
 		m_buffer = nullptr ;
 		m_commitBuf = false ;
 	}
@@ -586,7 +608,6 @@ void NNBuffer::UncommitCuda( void )
 	if ( m_commitCuda )
 	{
 		assert( m_cudaMemory != nullptr ) ;
-		m_cudaMemory->Free() ;
 		m_cudaMemory = nullptr ;
 		m_commitCuda = false ;
 	}

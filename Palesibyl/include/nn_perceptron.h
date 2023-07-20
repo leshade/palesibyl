@@ -63,6 +63,9 @@ public:
 		bool			reqDelay ;			// ディレイバッファへの出力が必要
 		bool			reqDelta2 ;			// 逆伝播が前レイヤーから行われる（2パス必要）
 		bool			transMatrix ;		// bufMatrix へ行列転送済み
+		bool			fixedMatrix ;		// 行列固定
+		bool			linearActivation ;	// 変換のない活性化関数
+		bool			sharedInputBuf ;	// bufInput は共有バッファ参照
 		size_t			iThisLayer ;		// このレイヤー番号
 		size_t			nRefOut ;			// 出力先レイヤーの数
 		size_t			nRefOut2 ;
@@ -87,8 +90,16 @@ public:
 		size_t GetCudaBufferBytes( void ) const ;
 		size_t EstimateCudaBufferBytes( void ) const ;
 	} ;
+
+	typedef	std::map< NNBufDim,
+						std::shared_ptr<NNBuffer>,
+						NNBufDimCompareLess >		SharedBufferMap ;
+
 	class	BufferArray	: public std::vector< std::shared_ptr<Buffer> >
 	{
+	public:
+		SharedBufferMap	m_mapInputBuf ;		// bufInput の共有
+
 	public:
 		unsigned long long GetTotalBufferBytes( void ) const ;
 		unsigned long long GetTotalCudaBufferBytes( void ) const ;
@@ -289,9 +300,9 @@ public:
 	// 動作フラグ
 	void SetBehaviorFlags( uint32_t flags ) ;
 	uint32_t GetBehaviorFlags( void ) const ;
-	bool IsMatrixFixed( void ) const ;
-	bool IsDeltaCutOff( void ) const ;
-	bool IsNoDropout( void ) const ;
+	virtual bool IsMatrixFixed( void ) const ;
+	virtual bool IsDeltaCutOff( void ) const ;
+	virtual bool IsNoDropout( void ) const ;
 	// 正規化
 	NNPerceptron * SetNormalization( std::shared_ptr<NNNormalizationFilter> pNorm ) ;
 	std::shared_ptr<NNNormalizationFilter> GetNormalization( void ) const ;
@@ -362,7 +373,7 @@ public:
 	virtual void ResetBuffer( Buffer& bufThis, size_t iThisLayer ) ;
 	virtual void PrepareBuffer
 		( Buffer& bufThis, const NNBufDim& dimSrc,
-			const BufferArray& bufArray,
+			BufferArray& bufArray,
 			const NNLoopStream& stream,
 			size_t iThisLayer,
 			uint32_t flagsBuffer,	// enum PrepareBufferFlag の組み合わせ
@@ -557,6 +568,8 @@ public:
 	}
 
 public:
+	// 動作フラグ（固定値行列）
+	virtual bool IsMatrixFixed( void ) const ;
 	// 勾配反映後のバッファ処理
 	virtual void ResetBufferInBatch( Buffer& bufThis ) const ;
 	// 行列更新用勾配計算

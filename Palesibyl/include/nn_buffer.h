@@ -60,6 +60,10 @@ public:
 	void TransformShape( const NNBufDim& dim ) ;
 	// 所有バッファ入れ替え
 	void SwapBuffer( NNBuffer& bufSwap ) ;
+	// 所有バッファ複製
+	void DuplicateBuffer( const NNBuffer& bufDup ) ;
+	// 同一バッファ
+	bool IsEqualBuffer( const NNBuffer& buf ) const ;
 	// バッファ解放
 	void Free( void ) ;
 	// フィル
