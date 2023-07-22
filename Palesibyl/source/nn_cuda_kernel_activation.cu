@@ -211,7 +211,7 @@ void Palesibyl::nncuda_LossDelta_MSE
 		const float * pTeaching, NNBufDim dimTeaching,
 		int nDepthwise, const NNLossParam& lp, cudaStream_t stream )
 {
-	nncuda_LossDelta<NNLossFunctionMSE,NNLossParam>
+	nncuda_LossDelta<NNFunctionLossMSE,NNLossParam>
 		( pLossDelta, dimLossDelta,
 			pInAct, dimInAct, pOutput, dimOutput,
 			pTeaching, dimTeaching, nDepthwise, lp, stream ) ;
@@ -224,7 +224,20 @@ void Palesibyl::nncuda_LossDelta_MAE
 		const float * pTeaching, NNBufDim dimTeaching,
 		int nDepthwise, const NNLossParam& lp, cudaStream_t stream )
 {
-	nncuda_LossDelta<NNLossFunctionMAE,NNLossParam>
+	nncuda_LossDelta<NNFunctionLossMAE,NNLossParam>
+		( pLossDelta, dimLossDelta,
+			pInAct, dimInAct, pOutput, dimOutput,
+			pTeaching, dimTeaching, nDepthwise, lp, stream ) ;
+}
+
+void Palesibyl::nncuda_LossDelta_BernoulliNLL
+	( float * pLossDelta, NNBufDim dimLossDelta,
+		const float * pInAct, NNBufDim dimInAct,
+		const float * pOutput, NNBufDim dimOutput,
+		const float * pTeaching, NNBufDim dimTeaching,
+		int nDepthwise, const NNLossParam& lp, cudaStream_t stream )
+{
+	nncuda_LossDelta<NNFunctionLossBernoulliNLL,NNLossParam>
 		( pLossDelta, dimLossDelta,
 			pInAct, dimInAct, pOutput, dimOutput,
 			pTeaching, dimTeaching, nDepthwise, lp, stream ) ;
@@ -237,7 +250,7 @@ void Palesibyl::nncuda_LossDelta_Argmax
 		const float * pTeaching, NNBufDim dimTeaching,
 		int nDepthwise, const NNLossParam& lp, cudaStream_t stream )
 {
-	nncuda_LossDelta<NNLossFunctionArgmax,NNLossParam>
+	nncuda_LossDelta<NNFunctionLossArgmax,NNLossParam>
 		( pLossDelta, dimLossDelta,
 			pInAct, dimInAct, pOutput, dimOutput,
 			pTeaching, dimTeaching, nDepthwise, lp, stream ) ;
@@ -250,7 +263,7 @@ void Palesibyl::nncuda_LossDelta_FastArgmax
 		const float * pTeaching, NNBufDim dimTeaching,
 		int nDepthwise, const NNLossParam& lp, cudaStream_t stream )
 {
-	nncuda_LossDelta<NNLossFunctionFastArgmax,NNLossParam>
+	nncuda_LossDelta<NNFunctionLossFastArgmax,NNLossParam>
 		( pLossDelta, dimLossDelta,
 			pInAct, dimInAct, pOutput, dimOutput,
 			pTeaching, dimTeaching, nDepthwise, lp, stream ) ;

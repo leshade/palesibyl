@@ -23,6 +23,8 @@ public:
 	virtual void BuildModel( NNMLPShell::Iterator * pIter ) ;
 	// 学習実行前
 	virtual void BeforeLearning( void ) ;
+	// 予測実行前
+	virtual void BeforePrediction( void ) ;
 	// 学習用イテレーター作成
 	virtual std::shared_ptr<NNMLPShell::Iterator> MakeLearningIter( void ) ;
 	// 予測用イテレーター作成

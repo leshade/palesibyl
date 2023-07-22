@@ -15,6 +15,7 @@
 #include "nn_sampling_filter.h"
 #include "nn_activation_func.h"
 #include "nn_evaluation_func.h"
+#include "nn_generator_func.h"
 
 namespace	Palesibyl
 {
@@ -49,6 +50,7 @@ public:
 				iChannel((uint32_t)channel), nChannels((uint32_t)channels),
 				xOffset((int32_t)xoffset), yOffset((int32_t)yoffset) { }
 	} ;
+	constexpr static const int32_t	conLayerNull	= 0x7FFFFFFF ;	// レイヤー入力無し : Connection.iLayer
 
 	// 中間バッファ
 	enum	InputSourceType
@@ -85,6 +87,8 @@ public:
 		size_t			yGradientBlock ;
 		NNNormalizationFilter::WorkBuf
 						normWorkBuf ;		// 正規化用バッファ
+		std::shared_ptr<NNGeneratorFunction::WorkBuf>
+						pGenWorkBuf ;		// 入力生成器用バッファ
 
 		size_t GetBufferBytes( void ) const ;
 		size_t GetCudaBufferBytes( void ) const ;
@@ -174,6 +178,7 @@ public:
 	constexpr static const uint32_t	CHHDRID_ACTIVATION = NNCHUNKID('A','C','T','F') ;
 	constexpr static const uint32_t	CHHDRID_NORM = NNCHUNKID('N','O','R','M') ;
 	constexpr static const uint32_t	CHHDRID_CONNECTION = NNCHUNKID('I','N','C','T') ;
+	constexpr static const uint32_t	CHHDRID_GENERATOR = NNCHUNKID('G','E','N','E') ;
 
 	// シリアライズ拡張フラグ
 	enum	SerializeExtendInfoFlag
@@ -198,6 +203,7 @@ public:
 		behaviorCutOffCon3		= 0x00080000,	// 入力 #3 への誤差δ逆伝播を遮断する
 		behaviorCutOffConMask	= 0x000F0000,
 		behaviorNoDropout		= 0x00000004,	// ドロップアウトしない
+		behaviorDisabled		= 0x00000008,	// 予測無効化（ゼロ出力）
 	} ;
 
 	// 勾配更新最適化
@@ -235,6 +241,7 @@ public:
 	std::shared_ptr<NNActivationFunction>	m_activation ;	// 活性化関数
 	std::shared_ptr<NNNormalizationFilter>	m_normalizer ;	// 正規化
 	std::vector<Connection>					m_connection ;	// 入力元情報
+	std::shared_ptr<NNGeneratorFunction>	m_generator ;	// 入力生成器
 
 public:
 	// 構築関数
@@ -265,6 +272,9 @@ public:
 	const std::vector<Connection>& GetConnection( void ) const ;
 	// 入力情報クリア
 	void ClearAllConnection( void ) ;
+	// 入力生成器
+	NNPerceptron * SetGenerator( std::shared_ptr<NNGeneratorFunction> pGen ) ;
+	std::shared_ptr<NNGeneratorFunction> GetGenerator( void ) const ;
 
 public:
 	// 行列
@@ -421,7 +431,8 @@ public:
 	// 損失計算
 	virtual double cpuCalcLoss
 		( CPUWorkArray& bufWorks, Buffer& bufThis,
-			const NNBuffer& bufTeaching, NNLoopStream& stream ) ;
+			const NNBuffer& bufTeaching, NNLoopStream& stream,
+			NNLossFunction * pLossFunc = nullptr ) ;
 	// 出力を遅延バッファにコピー
 	virtual void CopyToDelayBuffer( Buffer& bufThis, NNLoopStream& stream ) ;
 	virtual void cpuCopyToDelayBuffer( Buffer& bufThis ) ;
@@ -453,13 +464,16 @@ public:
 	// 損失関数δ計算
 	virtual double LossDelta
 		( CPUWorkArray& bufWorks, Buffer& bufThis,
-			NNBuffer& bufTeaching, NNLoopStream& stream ) ;
+			NNBuffer& bufTeaching, NNLoopStream& stream,
+			NNLossFunction * pLossFunc = nullptr ) ;
 	virtual double cpuLossDelta
 		( CPUWorkArray& bufWorks, Buffer& bufThis,
-			const NNBuffer& bufTeaching, NNLoopStream& stream ) ;
+			const NNBuffer& bufTeaching, NNLoopStream& stream,
+			NNLossFunction * pLossFunc = nullptr ) ;
 	virtual double cudaLossDelta
 		( CPUWorkArray& bufWorks, Buffer& bufThis,
-			NNBuffer& bufTeaching, NNLoopStream& stream ) ;
+			NNBuffer& bufTeaching, NNLoopStream& stream,
+			NNLossFunction * pLossFunc = nullptr ) ;
 	// 活性化関数のδ逆伝播処理
 	virtual void ActivationDeltaBack
 		( CPUWorkArray& bufWorks, Buffer& bufThis, NNLoopStream& stream ) ;

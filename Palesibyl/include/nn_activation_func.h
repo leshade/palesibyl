@@ -2,6 +2,8 @@
 #ifndef	__NN_ACTIVATION_FUNC_H__
 #define	__NN_ACTIVATION_FUNC_H__
 
+#include "nn_loss_func.h"
+
 namespace	Palesibyl
 {
 
@@ -9,14 +11,14 @@ namespace	Palesibyl
 // 活性化関数
 //////////////////////////////////////////////////////////////////////////////
 
-class	NNActivationFunction
+class	NNActivationFunction	: public NNLossFunction
 {
 protected:
 	static std::map
 		< std::string,
 			std::function
 				< std::shared_ptr
-					<NNActivationFunction>() > >	s_mapMakeFunc ;
+					<NNActivationFunction>() > >	s_mapMakeActFunc ;
 
 public:
 	// 関数生成準備
@@ -26,8 +28,14 @@ public:
 	// 登録
 	template <class T> static void Register( const char * pszName )
 	{
-		s_mapMakeFunc.insert
+		s_mapMakeActFunc.insert
 			( std::make_pair(std::string(pszName),
+							[]() { return std::make_shared<T>(); } ) ) ;
+	}
+	template <class T> static void Register( void )
+	{
+		s_mapMakeActFunc.insert
+			( std::make_pair(std::string(T::NNAFunc::FunctionName),
 							[]() { return std::make_shared<T>(); } ) ) ;
 	}
 
@@ -97,6 +105,7 @@ public:
 	typename L::LossParam	m_lossParam ;
 	// 関数
 	typedef	A	NNAFunc ;
+	typedef	L	NNLFunc ;
 	// 関数名
 	virtual const char * GetFunctionName( void) const
 	{
@@ -229,7 +238,7 @@ public:
 } ;
 
 class	NNActivationLinear
-	: public NNActivation<NNAFunctionLinear, NNLossFunctionMSE>
+	: public NNActivation<NNAFunctionLinear, NNFunctionLossMSE>
 {
 public:
 	virtual bool IsLinearActivation( void ) const
@@ -238,7 +247,7 @@ public:
 	}
 } ;
 class	NNActivationLinearMAE
-	: public NNActivation<NNAFunctionLinear, NNLossFunctionMAE>
+	: public NNActivation<NNAFunctionLinear, NNFunctionLossMAE>
 {
 public:
 	virtual bool IsLinearActivation( void ) const
@@ -247,23 +256,23 @@ public:
 	}
 } ;
 class	NNActivationReLU
-	: public NNActivation<NNAFunctionReLU, NNLossFunctionMSE> {} ;
+	: public NNActivation<NNAFunctionReLU, NNFunctionLossMSE> {} ;
 class	NNActivationSigmoid
-	: public NNActivation<NNAFunctionSigmoid, NNLossFunctionSigmoid> {} ;
+	: public NNActivation<NNAFunctionSigmoid, NNFunctionLossSigmoid> {} ;
 class	NNActivationTanh
-	: public NNActivation<NNAFunctionTanh, NNLossFunctionMSE> {} ;
+	: public NNActivation<NNAFunctionTanh, NNFunctionLossMSE> {} ;
 class	NNActivationSoftmax
-	: public NNActivation<NNAFunctionSoftmax, NNLossFunctionSoftmax> {} ;
+	: public NNActivation<NNAFunctionSoftmax, NNFunctionLossSoftmax> {} ;
 class	NNActivationFastSoftmax
-	: public NNActivation<NNAFunctionFastSoftmax, NNLossFunctionFastSoftmax> {} ;
+	: public NNActivation<NNAFunctionFastSoftmax, NNFunctionLossFastSoftmax> {} ;
 class	NNActivationArgmax
-	: public NNActivation<NNAFunctionArgmax, NNLossFunctionArgmax> {} ;
+	: public NNActivation<NNAFunctionArgmax, NNFunctionLossArgmax> {} ;
 class	NNActivationFastArgmax
-	: public NNActivation<NNAFunctionFastArgmax, NNLossFunctionFastArgmax> {} ;
+	: public NNActivation<NNAFunctionFastArgmax, NNFunctionLossFastArgmax> {} ;
 class	NNActivationMaxPool
-	: public NNActivation<NNAFunctionMaxPool, NNLossFunctionMSE> {} ;
+	: public NNActivation<NNAFunctionMaxPool, NNFunctionLossMSE> {} ;
 class	NNActivationMultiply
-	: public NNActivation<NNAFunctionMultiply, NNLossFunctionMSE> {} ;
+	: public NNActivation<NNAFunctionMultiply, NNFunctionLossMSE> {} ;
 
 }
 

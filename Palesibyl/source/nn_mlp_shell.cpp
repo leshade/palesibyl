@@ -71,8 +71,10 @@ void NNMLPShell::StaticInitialize( void )
 
 	NNNormalizationFilter::InitMake() ;
 	NNSamplingFilter::InitMake() ;
+	NNLossFunction::InitMakeLoss() ;
 	NNActivationFunction::InitMake() ;
 	NNEvaluationFunction::InitMake() ;
+	NNGeneratorFunction::InitMake() ;
 	NNPerceptron::InitMake() ;
 	NNImageCodec::InitializeLib() ;
 }
@@ -467,7 +469,7 @@ void NNMLPShell::PrepareLearning
 			( std::make_shared<NNMultiLayerPerceptron::BufferArrays>() ) ;
 		context.dimSourceArray.at(i) = NNBufDim( 0, 0, 0 ) ;
 	}
-	m_mlp.PrepareLossAndGradientArray( context.lagArray ) ;
+	m_mlp.PrepareLossAndGradientArrays( context.lagArrays ) ;
 
 	context.vEvalArray.resize( context.nBufCount ) ;
 	context.vEvalSummed.resize( context.nBufCount ) ;
@@ -672,7 +674,7 @@ void NNMLPShell::PrepareBuffer
 		}
 		mlp.ResetWorkInBatch( *(context.bufArraysArray.at(i)) ) ;
 	}
-	mlp.ResetLossAndGrandient( context.lagArray ) ;
+	mlp.ResetLossAndGrandient( context.lagArrays ) ;
 }
 
 void NNMLPShell::PrepareForwardBuffer
@@ -777,7 +779,7 @@ void NNMLPShell::LearnOnce
 			// データサイズが異なる場合、更新してバッファを作り直す
 			{
 				std::lock_guard<std::mutex>	lock(m_mutex) ;
-				m_mlp.AddLossAndGradient( context.lagArray, bufArrays ) ;
+				m_mlp.AddLossAndGradient( context.lagArrays, bufArrays ) ;
 			}
 			dimSource = pSource->GetSize() ;
 			m_mlp.PrepareBuffer
@@ -853,11 +855,11 @@ double NNMLPShell::IntegrateLossAndGradient( NNMLPShell::LearningContext& contex
 {
 	for ( size_t i = 0; i < context.nBufCount; i ++ )
 	{
-		m_mlp.AddLossAndGradient( context.lagArray, *(context.bufArraysArray.at(i)) ) ;
+		m_mlp.AddLossAndGradient( context.lagArrays, *(context.bufArraysArray.at(i)) ) ;
 		m_mlp.ResetWorkInBatch( *(context.bufArraysArray.at(i)) ) ;
 	}
 
-	context.lossCurLoop = m_mlp.GetAverageLoss( context.lagArray ) ;
+	context.lossCurLoop = m_mlp.GetAverageLoss( context.lagArrays ) ;
 	return	context.lossCurLoop ;
 }
 
@@ -870,10 +872,10 @@ void NNMLPShell::GradientReflection
 	context.lossLastLoop = context.lossCurLoop ;
 
 	// 勾配ノルム（ログ用）
-	assert( context.lagArray.size() >= lpi.gradNorms.size() ) ;
+	assert( context.lagArrays.size() >= lpi.gradNorms.size() ) ;
 	for ( size_t i = 0; i < lpi.gradNorms.size(); i ++ )
 	{
-		const NNPerceptron::LossAndGradient&	grad = context.lagArray.at(i) ;
+		const NNPerceptron::LossAndGradient&	grad = context.lagArrays.at(i) ;
 		if ( grad.nGradient > 0 )
 		{
 			NNPerceptronPtr	pLayer = m_mlp.GetLayerAt(i) ;
@@ -889,9 +891,9 @@ void NNMLPShell::GradientReflection
 	// 勾配反映
 	if ( !isinf( context.lossCurLoop ) )
 	{
-		m_mlp.GradientReflection( context.lagArray, context.deltaCurRate ) ;
+		m_mlp.GradientReflection( context.lagArrays, context.deltaCurRate ) ;
 	}
-	m_mlp.ResetLossAndGrandient( context.lagArray ) ;
+	m_mlp.ResetLossAndGrandient( context.lagArrays ) ;
 }
 
 // 検証

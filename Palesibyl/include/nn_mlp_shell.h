@@ -198,8 +198,8 @@ public:
 			< std::shared_ptr
 				<NNMultiLayerPerceptron::BufferArrays> >
 									bufArraysArray ;	// スレッド毎のバッファ配列
-		NNMultiLayerPerceptron::LossAndGradientArray
-									lagArray ;			// 統合された更新用勾配と損失合計
+		NNMultiLayerPerceptron::LossAndGradientArrays
+									lagArrays ;			// 統合された更新用勾配と損失合計
 
 		std::vector<double>			vEvalArray ;		// スレッド毎の評価値の合計
 		std::vector<size_t>			vEvalSummed ;		// スレッド毎の評価値の合計回数

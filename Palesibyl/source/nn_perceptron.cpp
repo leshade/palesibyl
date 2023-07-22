@@ -209,6 +209,19 @@ void NNPerceptron::ClearAllConnection( void )
 	m_connection.clear() ;
 }
 
+// 入力生成器
+//////////////////////////////////////////////////////////////////////////////
+NNPerceptron * NNPerceptron::SetGenerator( std::shared_ptr<NNGeneratorFunction> pGen )
+{
+	m_generator = pGen ;
+	return	this ;
+}
+
+std::shared_ptr<NNGeneratorFunction> NNPerceptron::GetGenerator( void ) const
+{
+	return	m_generator ;
+}
+
 // 行列
 //////////////////////////////////////////////////////////////////////////////
 NNMatrix& NNPerceptron::Matrix( void )
@@ -470,6 +483,14 @@ void NNPerceptron::Serialize( NNSerializer& ser )
 		ser.Ascend() ;
 	}
 
+	if ( m_generator != nullptr )
+	{
+		ser.Descend( CHHDRID_GENERATOR ) ;
+		ser.WriteString( m_generator->GetFunctionName() ) ;
+		m_generator->Serialize( ser ) ;
+		ser.Ascend() ;
+	}
+
 	ser.Descend( CHHDRID_CONNECTION ) ;
 	uint32_t	lenCon = (uint32_t) m_connection.size() ;
 	ser.Write( &lenCon, sizeof(lenCon) ) ;
@@ -611,6 +632,15 @@ bool NNPerceptron::Deserialize( NNDeserializer & dsr )
 			if ( m_normalizer != nullptr )
 			{
 				m_normalizer->Deserialize( dsr ) ;
+			}
+		}
+		else if ( idChunk == CHHDRID_GENERATOR )
+		{
+			std::string	strGen = dsr.ReadString() ;
+			m_generator = NNGeneratorFunction::Make( strGen.c_str() ) ;
+			if ( m_generator != nullptr )
+			{
+				m_generator->Deserialize( dsr ) ;
 			}
 		}
 		else if ( idChunk == CHHDRID_CONNECTION )
@@ -835,6 +865,7 @@ void NNPerceptron::PrepareBuffer
 		flagInSrcOutput = true ;
 	}
 	else if ( (m_connection.size() == 1)
+			&& (m_connection.at(0).iLayer != conLayerNull)
 			&& (m_connection.at(0).iDelay == 0)
 			&& (m_connection.at(0).iChannel == 0) )
 	{
@@ -908,6 +939,11 @@ void NNPerceptron::PrepareBuffer
 	{
 		m_normalizer->PrepareWorkBuf
 			( bufThis.normWorkBuf, dimInner, bufThis.forLearning, stream ) ;
+	}
+
+	if ( m_generator != nullptr )
+	{
+		bufThis.pGenWorkBuf = m_generator->MakeWorkBuffer( dimSrc, stream );
 	}
 
 	if ( flagsBuffer & bufferForLearning )
@@ -1225,6 +1261,18 @@ NNPerceptron::InputBuffer NNPerceptron::PrepareInput
 		size_t	chNext = 0 ;
 		for ( auto cn : m_connection )
 		{
+			if ( cn.iLayer == conLayerNull )
+			{
+				if ( m_generator != nullptr )
+				{
+					m_generator->Generate
+						( pbufThis->bufInput,
+							pbufThis->pGenWorkBuf.get(),
+							chNext, cn.nChannels, stream ) ;
+				}
+				chNext += cn.nChannels ;
+				continue ;
+			}
 			NNBuffer *	pInputBuf = &bufInput0 ;
 			int			iDelay = 0 ;
 			if ( (cn.iLayer <= (int) iThisLayer)
@@ -1315,6 +1363,16 @@ void NNPerceptron::cpuPrediction
 	else
 	{
 		bufThis.bufOutput.Commit() ;
+	}
+
+	if ( m_behavior & behaviorDisabled )
+	{
+		if ( !bufThis.bufInAct.IsEqualBuffer( bufThis.bufOutput ) )
+		{
+			bufThis.bufInAct.Fill( 0.0f ) ;
+		}
+		bufThis.bufOutput.Fill( 0.0f ) ;
+		return ;
 	}
 
 	const bool	flagDropout = !(m_behavior & (behaviorFixed | behaviorNoDropout))
@@ -1455,6 +1513,16 @@ void NNPerceptron::cudaPrediction
 		bufThis.bufOutput.CommitCuda() ;
 	}
 
+	if ( m_behavior & behaviorDisabled )
+	{
+		if ( !bufThis.bufInAct.IsEqualBuffer( bufThis.bufOutput ) )
+		{
+			bufThis.bufInAct.CudaFill( 0.0f, stream.m_cudaStream ) ;
+		}
+		bufThis.bufOutput.CudaFill( 0.0f, stream.m_cudaStream ) ;
+		return ;
+	}
+
 	if ( !bufThis.transMatrix )
 	{
 		bufThis.bufMatrix.CudaCopyAsyncFrom
@@ -1509,7 +1577,7 @@ double NNPerceptron::cpuCalcLoss
 	( NNPerceptron::CPUWorkArray& bufWorks,
 		NNPerceptron::Buffer& bufThis,
 		const NNBuffer& bufTeaching,
-		NNLoopStream& stream )
+		NNLoopStream& stream, NNLossFunction * pLossFunc )
 {
 	const NNBufDim	dimOutput = bufThis.bufOutput.GetSize() ;
 	const NNBufDim	dimInAct = bufThis.bufInAct.GetSize() ;
@@ -1523,7 +1591,10 @@ double NNPerceptron::cpuCalcLoss
 	assert( dimOutput.y == dimInAct.y ) ;
 	assert( dimOutput.z == m_activation->CalcOutputChannels(dimInAct.z,GetActivationDepthwise()) ) ;
 
-	NNActivationFunction *	pActivation = m_activation.get() ;
+	if ( pLossFunc == nullptr )
+	{
+		pLossFunc = m_activation.get() ;
+	}
 
 	bufThis.bufInAct.Commit() ;
 
@@ -1534,7 +1605,7 @@ double NNPerceptron::cpuCalcLoss
 		double	loss = 0.0 ;
 		for ( size_t x = 0; x < dimOutput.x; x ++ )
 		{
-			loss += pActivation->cpuLoss
+			loss += pLossFunc->cpuLoss
 				( pInAct, pOutput,
 					bufTeaching.GetConstBufferAt(x,y),
 					dimInAct.z, GetActivationDepthwise() ) ;
@@ -1771,15 +1842,18 @@ void NNPerceptron::cudaSwitchDeltaSecondaryBuffer
 double NNPerceptron::LossDelta
 	( NNPerceptron::CPUWorkArray& bufWorks,
 		NNPerceptron::Buffer& bufThis,
-		NNBuffer& bufTeaching, NNLoopStream& stream )
+		NNBuffer& bufTeaching,
+		NNLoopStream& stream, NNLossFunction * pLossFunc )
 {
 	if ( stream.m_useCuda )
 	{
-		return	cudaLossDelta( bufWorks, bufThis, bufTeaching, stream ) ;
+		return	cudaLossDelta
+					( bufWorks, bufThis, bufTeaching, stream, pLossFunc ) ;
 	}
 	else
 	{
-		return	cpuLossDelta( bufWorks, bufThis, bufTeaching, stream ) ;
+		return	cpuLossDelta
+					( bufWorks, bufThis, bufTeaching, stream, pLossFunc ) ;
 	}
 }
 
@@ -1787,43 +1861,50 @@ double NNPerceptron::cpuLossDelta
 	( NNPerceptron::CPUWorkArray& bufWorks,
 		NNPerceptron::Buffer& bufThis,
 		const NNBuffer& bufTeaching,
-		NNLoopStream& stream )
+		NNLoopStream& stream, NNLossFunction * pLossFunc )
 {
 	const NNBufDim	dimOutput = bufThis.bufOutput.GetSize() ;
 	const NNBufDim	dimInAct = bufThis.bufInAct.GetSize() ;
 	const NNBufDim	dimTeaching = bufTeaching.GetSize() ;
 
 	// ※最終レイヤーの活性化関数はチャネル数を変換しないこと
-	// （bufPrevDelta ではなく bufInDelta へ直接出力する）
+	// （pLossFunc==nullptr の時、bufPrevDelta ではなく bufInDelta へ直接出力する）
 	assert( dimOutput.x <= dimTeaching.x ) ;
 	assert( dimOutput.y <= dimTeaching.y ) ;
 	assert( m_activation->IsValidTeachingChannels(dimInAct.z,GetActivationDepthwise(),dimTeaching.z) ) ;
 	assert( dimOutput.x == dimInAct.x ) ;
 	assert( dimOutput.y == dimInAct.y ) ;
 	assert( dimOutput.z == m_activation->CalcOutputChannels(dimInAct.z,GetActivationDepthwise()) ) ;
-//	assert( dimInAct == bufThis.bufPrevDelta.GetSize() ) ;
 	assert( dimInAct == bufThis.bufInDelta.GetSize() ) ;
 
-	NNActivationFunction *
-				pActivation = m_activation.get() ;
-
-//	bufThis.bufPrevDelta.Commit() ;
+	bool	flagActDelta = false ;
+	if ( pLossFunc == nullptr )
+	{
+		pLossFunc = m_activation.get() ;
+	}
+	else
+	{
+		assert( dimInAct == bufThis.bufPrevDelta.GetSize() ) ;
+		flagActDelta = true ;
+		bufThis.bufPrevDelta.Commit() ;
+	}
 	bufThis.bufInDelta.Commit() ;
 
 	stream.m_ploop.Loop( 0, dimOutput.y, [&]( size_t iThread, size_t y )
 	{
 		const float *	pOutput = bufThis.bufOutput.GetConstBufferAt( 0, y ) ;
 		const float *	pInAct = bufThis.bufInAct.GetConstBufferAt( 0, y ) ;
-//		float *			pDelta = bufThis.bufPrevDelta.GetBufferAt( 0, y ) ;
-		float *			pDelta = bufThis.bufInDelta.GetBufferAt( 0, y ) ;
+		float *			pDelta = flagActDelta
+									? bufThis.bufPrevDelta.GetBufferAt( 0, y )
+									: bufThis.bufInDelta.GetBufferAt( 0, y ) ;
 		const float *	pTeaching = bufTeaching.GetConstBufferAt( 0, y ) ;
 		const size_t	nDepthwise = GetActivationDepthwise() ;
 		double			loss = 0.0 ;
 		for ( size_t x = 0; x < dimOutput.x; x ++ )
 		{
-			pActivation->cpuLossDelta
+			pLossFunc->cpuLossDelta
 				( pDelta, pInAct, pOutput, pTeaching, dimInAct.z, nDepthwise ) ;
-			loss += pActivation->cpuLoss
+			loss += pLossFunc->cpuLoss
 				( pInAct, pOutput, pTeaching, dimInAct.z, nDepthwise ) ;
 			pDelta += dimInAct.z ;
 			pInAct += dimInAct.z ;
@@ -1835,7 +1916,16 @@ double NNPerceptron::cpuLossDelta
 		bufWork.nLossSamples += dimOutput.x ;
 	} ) ;
 
-//	bufThis.bufPrevDelta.CheckOverun() ;
+	if ( flagActDelta )
+	{
+		bufThis.bufPrevDelta.CheckOverun() ;
+		cpuActivationDeltaBack( bufWorks, bufThis, stream ) ;
+	}
+	else if ( m_normalizer != nullptr )
+	{
+		m_normalizer->cpuDeltaBack
+			( bufThis.normWorkBuf, bufThis.bufInDelta, bufThis.bufInAct, stream ) ;
+	}
 	bufThis.bufInDelta.CheckOverun() ;
 
 	for ( CPUWorkBuf& work : bufWorks )
@@ -1851,7 +1941,8 @@ double NNPerceptron::cpuLossDelta
 double NNPerceptron::cudaLossDelta
 	( NNPerceptron::CPUWorkArray& bufWorks,
 		NNPerceptron::Buffer& bufThis,
-		NNBuffer& bufTeaching, NNLoopStream& stream )
+		NNBuffer& bufTeaching,
+		NNLoopStream& stream, NNLossFunction * pLossFunc )
 {
 	const NNBufDim	dimOutput = bufThis.bufOutput.GetSize() ;
 	const NNBufDim	dimInAct = bufThis.bufInAct.GetSize() ;
@@ -1859,7 +1950,7 @@ double NNPerceptron::cudaLossDelta
 	const NNBufDim	dimTeaching = bufTeaching.GetSize() ;
 
 	// ※最終レイヤーの活性化関数はチャネル数を変換しないこと
-	// （bufPrevDelta ではなく bufInDelta へ直接出力する）
+	// （pLossFunc==nullptr の時、bufPrevDelta ではなく bufInDelta へ直接出力する）
 	assert( dimOutput.x <= dimTeaching.x ) ;
 	assert( dimOutput.y <= dimTeaching.y ) ;
 	assert( m_activation->IsValidTeachingChannels(dimInAct.z,GetActivationDepthwise(),dimTeaching.z) ) ;
@@ -1867,20 +1958,40 @@ double NNPerceptron::cudaLossDelta
 	assert( dimOutput.y == dimInDelta.y ) ;
 	assert( dimOutput.z == m_activation->CalcOutputChannels(dimInDelta.z,GetActivationDepthwise()) ) ;
 	assert( dimInDelta == dimInAct ) ;
-//	assert( dimInDelta == bufThis.bufPrevDelta.GetSize() ) ;
 
-//	bufThis.bufPrevDelta.CommitCuda() ;
+	bool	flagActDelta = false ;
+	if ( pLossFunc == nullptr )
+	{
+		pLossFunc = m_activation.get() ;
+	}
+	else
+	{
+		flagActDelta = true ;
+		bufThis.bufPrevDelta.Commit() ;
+	}
+
 	bufThis.bufInDelta.CommitCuda() ;
 	bufTeaching.CommitCuda() ;
 
-	m_activation->cudaLossDelta
-		( bufThis.bufInDelta.GetCudaPtr()
-			/*bufThis.bufPrevDelta.GetCudaPtr()*/, dimInDelta,
+	pLossFunc->cudaLossDelta
+		( (flagActDelta ?
+				bufThis.bufPrevDelta.GetCudaPtr()
+				: bufThis.bufInDelta.GetCudaPtr()), dimInDelta,
 			bufThis.bufInAct.GetCudaPtr(), dimInAct,
 			bufThis.bufOutput.GetCudaPtr(), dimOutput,
 			bufTeaching.GetCudaPtr(), dimTeaching,
 			GetActivationDepthwise(), stream.m_cudaStream ) ;
 	stream.m_cudaStream.VerifySync() ;
+
+	if ( flagActDelta )
+	{
+		cudaActivationDeltaBack( bufWorks, bufThis, stream ) ;
+	}
+	else if ( m_normalizer != nullptr )
+	{
+		m_normalizer->cudaDeltaBack
+			( bufThis.normWorkBuf, bufThis.bufInDelta, bufThis.bufInAct, stream ) ;
+	}
 
 	return	cpuCalcLoss( bufWorks, bufThis, bufTeaching, stream ) ;
 }

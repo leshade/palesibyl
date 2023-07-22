@@ -72,6 +72,31 @@ namespace PalesibylTest
 			Assert::IsTrue( test / (dimSrc * dimDst) < 1.0e-6 ) ;
 		}
 
+		// NNBufDimCompareLess テスト
+		TEST_METHOD(TestMapKeyAsBufDim)
+		{
+			std::map< NNBufDim,int,NNBufDimCompareLess >	map ;
+
+			NNBufDim	dimTest1( 10, 20, 30 ) ;
+			NNBufDim	dimTest2( 20, 30, 10 ) ;
+			NNBufDim	dimTest3( 30, 10, 20 ) ;
+			NNBufDim	dimTest4( 40, 30, 20 ) ;
+
+			map.insert( std::make_pair( dimTest1, 1 ) ) ;
+			map.insert( std::make_pair( dimTest2, 2 ) ) ;
+			map.insert( std::make_pair( dimTest3, 3 ) ) ;
+			map.insert( std::make_pair( dimTest4, 4 ) ) ;
+
+			Assert::IsTrue( (map.find(dimTest1) != map.end())
+							&& (map.find(dimTest1)->second == 1) ) ;
+			Assert::IsTrue( (map.find(dimTest2) != map.end())
+							&& (map.find(dimTest2)->second == 2) ) ;
+			Assert::IsTrue( (map.find(dimTest3) != map.end())
+							&& (map.find(dimTest3)->second == 3) ) ;
+			Assert::IsTrue( (map.find(dimTest4) != map.end())
+							&& (map.find(dimTest4)->second == 4) ) ;
+		}
+
 		// 線形回帰テスト（CPU・単一スレッド）
 		TEST_METHOD(TestLinearRegressionWithCPU)
 		{

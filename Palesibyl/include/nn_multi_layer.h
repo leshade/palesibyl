@@ -91,24 +91,22 @@ public:
 
 
 //////////////////////////////////////////////////////////////////////////////
-// マルチ・レイヤー・パーセプトロン
+// マルチ・レイヤー・パーセプトロン（基底）
 //////////////////////////////////////////////////////////////////////////////
 
-class	NNMultiLayerPerceptron
+class	NNPerceptronArray
 {
 public:
 	// バッファ
-	struct	BufferArrays
+	struct	BufferArray
 	{
 		uint32_t								flags ;		// enum PrepareBufferFlag の組み合わせ
 		int										iDelta2 ;	// δ逆伝播２パス目開始レイヤー
-		size_t									xBoundary ;	// ストリーミングでの開始位置
-		NNLoopStream							stream ;
 		NNPerceptron::BufferArray				buffers ;
 		NNPerceptron::CPUWorkArrayArray			works ;
 		std::vector<NNPerceptron::InputBuffer>	inBufs ;
 
-		BufferArrays( void ) : flags(0), iDelta2(-1), xBoundary(0) { }
+		BufferArray( void ) : flags(0), iDelta2(-1) { }
 	} ;
 	class	LossAndGradientArray
 				: public std::vector<NNPerceptron::LossAndGradientBuf>
@@ -119,69 +117,23 @@ public:
 		LossAndGradientArray( void ) : bufNormMax(0.0f) {}
 	} ;
 
-	// シリアライズ用チャンク
-	constexpr static const uint32_t	CHHDRID_HEADER = NNCHUNKID('M','L','P','H') ;
-	constexpr static const uint32_t	CHHDRID_EVALUATION = NNCHUNKID('E','V','A','L') ;
-	constexpr static const uint32_t	CHHDRID_LAYER = NNCHUNKID('L','A','Y','R') ;
-
-	// サイズ情報
-	struct	LayerDim
-	{
-		uint32_t	x, y, z ;
-	} ;
-
-	// ヘッダ情報
-	struct	FileHeader
-	{
-		uint32_t	flagsHeader ;	// enum FileHeaderFlag の組み合わせ
-		uint32_t	nLayerCount ;	// レイヤー数
-		uint32_t	flagsMLP ;		// enum MLPFlag の組み合わせ
-		uint32_t	nReserved ;		// = 0
-		LayerDim	dimInShape ;
-		LayerDim	dimInUnit ;
-	} ;
-
-	// ヘッダフラグ
-	enum	FileHeaderFlag
-	{
-		hdrFlagChunkedLayer	= 0x0001,
-	} ;
-
-	// MLP フラグ
-	enum	MLPFlag
-	{
-		mlpFlagStream		= 0x0001,	// RNN などの可変長入力
-	} ;
-
 protected:
-	std::vector<NNPerceptronPtr>			m_mlp ;
-	std::shared_ptr<NNEvaluationFunction>	m_evaluation ;
-
-	uint32_t	m_flagsMLP ;		// enum MLPFlag の組み合わせ
-	NNBufDim	m_dimInShape ;		// デフォルト入力サイズ（mlpFlagStream 時）
-	NNBufDim	m_dimInUnit ;		// 入力単位（mlpFlagStream 時）
+	std::string						m_id ;
+	std::vector<NNPerceptronPtr>	m_mlp ;
+	std::shared_ptr<NNLossFunction>	m_loss ;
 
 public:
-	// 構築関数
-	NNMultiLayerPerceptron( void ) ;
+	// 識別子
+	const std::string& GetIdentity( void ) const ;
+	void SetIdentity( const char * pszId ) ;
+
 	// データ初期化
 	void ClearAll( void ) ;
-	// 入力サイズ設定
-	void SetInputShape
-		( uint32_t flagsMLP,
-			const NNBufDim& dimShape, const NNBufDim& dimUnit ) ;
-	// フラグ取得
-	uint32_t GetMLPFlags( void ) const ;
-	// 入力サイズ取得
-	const NNBufDim& GetInputShape( void ) const ;
-	const NNBufDim& GetInputUnit( void ) const ;
-	// 学習の前に事前予測処理が必要な回数
-	size_t CountOfPrePrediction( void ) const ;
-	// 評価関数
-	void SetEvaluationFunction( std::shared_ptr<NNEvaluationFunction> pEvaluation ) ;
-	std::shared_ptr<NNEvaluationFunction> GetEvaluationFunction( void ) const ;
 
-public:
+	// 損失関数（デフォルトは出力レイヤーの活性化関数）
+	std::shared_ptr<NNLossFunction> GetLossFunction( void ) const ;
+	void SetLossFunction( std::shared_ptr<NNLossFunction> loss ) ;
+
 	// レイヤー追加
 	NNPerceptronPtr AppendLayer
 		( size_t nDstChannels, size_t nSrcChannels, size_t nBias = 1,
@@ -336,12 +288,26 @@ public:
 		( NNPerceptron * pLayer, NNPerceptron * pFromLayer ) const ;
 
 public:
+	// シリアライズ用チャンク
+	constexpr static const uint32_t	CHHDRID_MLP_ID = NNCHUNKID('M','L','I','D') ;
+	constexpr static const uint32_t	CHHDRID_LOSS = NNCHUNKID('L','O','S','S') ;
+	constexpr static const uint32_t	CHHDRID_LAYER = NNCHUNKID('L','A','Y','R') ;
+
 	// シリアライズ
 	virtual void Serialize( NNSerializer& ser ) ;
 	// デシリアライズ
 	virtual bool Deserialize( NNDeserializer & dsr ) ;
+	bool DeserializeChunk( NNDeserializer & dsr, uint32_t idChunk ) ;
+	bool DeserializeLayer( NNDeserializer & dsr ) ;
 
 public:
+	// 学習の前に事前予測処理が必要な回数
+	size_t CountOfPrePrediction( void ) const ;
+	// 出力サイズ計算
+	NNBufDim CalcOutputSize( const NNBufDim& dimInput ) const ;
+	void PrepareOutputDimArray
+		( std::vector<NNBufDim>& dimArray, const NNBufDim& dimInput ) const ;
+
 	// バッファ準備コンフィグ
 	struct	BufferConfig
 	{
@@ -361,37 +327,36 @@ public:
 		bufferNoDropout			= NNPerceptron::bufferNoDropout,		// ドロップアウトは行わない
 	} ;
 	// バッファ準備
-	virtual void PrepareBuffer
-		( BufferArrays& bufArrays,
+	void PrepareBuffer
+		( BufferArray& bufArray,
 			const NNBufDim& dimInput,
 			uint32_t flagsBuffer,		// enum PrepareBufferFlag の組み合わせ
-			const BufferConfig& bufConfig ) ;
-	virtual void PrepareLossAndGradientArray( LossAndGradientArray& lagArray ) ;
+			const BufferConfig& bufConfig,
+			const NNLoopStream& stream ) ;
+	void PrepareLossAndGradientArray( LossAndGradientArray& lagArray ) ;
 	// 出力サイズ取得
-	NNBufDim GetOutputSize( const BufferArrays& bufArrays ) const ;
-	// 出力サイズ計算
-	NNBufDim CalcOutputSize( const NNBufDim& dimInput ) const ;
-	void PrepareOutputDimArray
-		( std::vector<NNBufDim>& dimArray, const NNBufDim& dimInput ) const ;
-	// ミニバッチ毎の処理
-	virtual void PrepareForMiniBatch
-		( BufferArrays& bufArrays,
-			uint32_t flagsBuffer, std::random_device::result_type rndSeed ) const ;
+	NNBufDim GetOutputSize( const BufferArray& bufArray ) const ;
 	// 勾配リセット
-	virtual void ResetWorkInBatch( BufferArrays& bufArrays ) ;
-	virtual void ResetLossAndGrandient( LossAndGradientArray& lagArray ) ;
+	void ResetWorkInBatch( BufferArray& bufArray ) ;
+	void ResetLossAndGrandient( LossAndGradientArray& lagArray ) ;
 	// エポック開始時処理
-	virtual void OnBeginEpoch( void ) ;
+	void OnBeginEpoch( void ) ;
 	// エポック終了時処理
-	virtual void OnEndEpoch( BufferArrays& bufArrays ) ;
+	void OnEndEpoch( BufferArray& bufArray ) ;
 	// 損失と勾配を合計する
-	virtual void AddLossAndGradient
-		( LossAndGradientArray& lagArray, const BufferArrays& bufArrays ) ;
+	void AddLossAndGradient
+		( LossAndGradientArray& lagArray, const BufferArray& bufArray ) ;
+	// ミニバッチ毎の処理
+	void PrepareForMiniBatch
+		( BufferArray& bufArray,
+			uint32_t flagsBuffer,
+			std::random_device::result_type rndSeed, NNLoopStream& stream ) const ;
 	// ストリーミングに連動してバッファをシフトする
-	virtual void ShiftBufferWithStreaming( BufferArrays& bufArrays, size_t xShift ) ;
+	void ShiftBufferWithStreaming
+		( BufferArray& bufArray, size_t xShift, NNLoopStream& stream ) ;
 	// 出力層が再帰入力されている場合、学習の前に遅延バッファに教師データを入れる
-	virtual void PrepareOutputDelay
-		( BufferArrays& bufArrays, NNBuffer& bufTearcher ) ;
+	void PrepareOutputDelay
+		( BufferArray& bufArray, NNBuffer& bufTeacher, NNLoopStream& stream ) ;
 
 public:
 	// モデルとデータの形状の検証
@@ -417,10 +382,232 @@ public:
 		size_t		iLayer ;
 		size_t		iConnection ;
 	} ;
+	bool VerifyDataShape
+		( VerifyResult& verfResult,
+			const BufferArray& bufArrays,
+			const NNBufDim& dimTeaching,
+			const NNBufDim& dimSource0, bool flagCuda ) const ;
+
+public:
+	// 予測処理
+	NNBuffer * Prediction
+		( BufferArray& bufArray, NNLoopStream& stream,
+			NNBuffer& bufInput, size_t xBoundary = 0,
+			size_t iFirstLayer = 0, size_t iEndLayer = 0,
+			bool flagForLearning = false, bool flagLowMemory = false ) ;
+	// 予測値の損失計算
+	double CalcLoss
+		( BufferArray& bufArray, NNLoopStream& stream, NNBuffer& bufTeacher ) ;
+
+public:
+	// 学習１回
+	double Learning
+		( BufferArray& bufArray, NNLoopStream& stream,
+			NNBuffer& bufTeacher, NNBuffer& bufInput,
+			NNPerceptronArray * pForwardMLP = nullptr,
+			BufferArray * pForwardBufArrays = nullptr ) ;
+	// 指定レイヤーのδ逆伝播処理
+	void DeltaBackLayerAt
+		( size_t iLayer, bool flagOutputLayer,
+			BufferArray& bufArrays, NNLoopStream& stream ) ;
+	// 勾配反映
+	void GradientReflection
+		( LossAndGradientArray& lagArray, float deltaRate ) ;
+	// 平均損失値取得
+	double GetAverageLoss( const BufferArray& bufArray ) const ;
+	double GetAverageLoss( const LossAndGradientArray& lagArray ) const ;
+
+} ;
+
+
+
+//////////////////////////////////////////////////////////////////////////////
+// マルチ・レイヤー・パーセプトロン
+//////////////////////////////////////////////////////////////////////////////
+
+class	NNMultiLayerPerceptron	: public NNPerceptronArray
+{
+public:
+	// 特殊レイヤー指標（入力バッファ指定）
+	enum	SpecialLayerIndex
+	{
+		layerTeacher	= -2,
+		layerSource		= -1,
+		layerMLPFirst	= 0,
+	} ;
+
+	// 追加的な MLP パス
+	struct	PassDescription
+	{
+		int32_t	iSourceLayer ;		// 入力レイヤー指標
+		int32_t	iTeachingLayer ;	// 教師レイヤー指標
+	} ;
+	class	Pass	: public NNPerceptronArray
+	{
+	public:
+		PassDescription	m_dsc ;
+	public:
+		virtual void Serialize( NNSerializer& ser ) ;
+		virtual bool Deserialize( NNDeserializer & dsr ) ;
+	} ;
+
+	// バッファ
+	struct	BufferArrays	: public NNPerceptronArray::BufferArray
+	{
+		size_t			iFirstLayer ;	// 開始レイヤー（一部のみ使用する場合）
+		size_t			iEndLayer ;		// 終了レイヤー＋１（一部のみ使用する場合）
+		size_t			xBoundary ;		// ストリーミングでの開始位置
+		NNLoopStream	stream ;		// 実行ストリーム
+
+		std::vector
+			< std::shared_ptr
+				<NNPerceptronArray::BufferArray> >
+						subpass ;		// 追加的なパス用
+
+		BufferArrays( void )
+			: iFirstLayer(0), iEndLayer(0), xBoundary(0) { }
+	} ;
+
+	class	LossAndGradientArrays	: public NNPerceptronArray::LossAndGradientArray
+	{
+	public:
+		std::vector<NNPerceptronArray::LossAndGradientArray>	subpass ;
+	} ;
+
+	// シリアライズ用チャンク
+	constexpr static const uint32_t	CHHDRID_HEADER = NNCHUNKID('M','L','P','H') ;
+	constexpr static const uint32_t	CHHDRID_MLP_BODY = NNCHUNKID('M','L','P','B') ;
+	constexpr static const uint32_t	CHHDRID_EVALUATION = NNCHUNKID('E','V','A','L') ;
+	constexpr static const uint32_t	CHHDRID_SUBPASS = NNCHUNKID('S','U','B','P') ;
+	constexpr static const uint32_t	CHHDRID_SUBPASS_HEADER = NNCHUNKID('S','U','B','H') ;
+
+	// サイズ情報
+	struct	LayerDim
+	{
+		uint32_t	x, y, z ;
+	} ;
+
+	// ヘッダ情報
+	struct	FileHeader
+	{
+		uint32_t	flagsHeader ;	// enum FileHeaderFlag の組み合わせ
+		uint32_t	nLayerCount ;	// レイヤー数
+		uint32_t	flagsMLP ;		// enum MLPFlag の組み合わせ
+		uint32_t	nReserved ;		// = 0
+		LayerDim	dimInShape ;
+		LayerDim	dimInUnit ;
+	} ;
+
+	// ヘッダフラグ
+	enum	FileHeaderFlag
+	{
+		hdrFlagChunkedLayer	= 0x0001,
+	} ;
+
+	// MLP フラグ
+	enum	MLPFlag
+	{
+		mlpFlagStream		= 0x0001,	// RNN などの可変長入力
+	} ;
+
+protected:
+	std::vector< std::shared_ptr<Pass> >	m_subpass ;
+	std::shared_ptr<NNEvaluationFunction>	m_evaluation ;
+
+	uint32_t	m_flagsMLP ;		// enum MLPFlag の組み合わせ
+	NNBufDim	m_dimInShape ;		// デフォルト入力サイズ（mlpFlagStream 時）
+	NNBufDim	m_dimInUnit ;		// 入力単位（mlpFlagStream 時）
+
+public:
+	// 構築関数
+	NNMultiLayerPerceptron( void ) ;
+	// データ初期化
+	void ClearAll( void ) ;
+	// 入力サイズ設定
+	void SetInputShape
+		( uint32_t flagsMLP,
+			const NNBufDim& dimShape, const NNBufDim& dimUnit ) ;
+	// フラグ取得
+	uint32_t GetMLPFlags( void ) const ;
+	// 入力サイズ取得
+	const NNBufDim& GetInputShape( void ) const ;
+	const NNBufDim& GetInputUnit( void ) const ;
+	// 学習の前に事前予測処理が必要な回数
+	size_t CountOfPrePrediction( void ) const ;
+	// 評価関数
+	void SetEvaluationFunction( std::shared_ptr<NNEvaluationFunction> pEvaluation ) ;
+	std::shared_ptr<NNEvaluationFunction> GetEvaluationFunction( void ) const ;
+	// 追加的なパス
+	void AddSubpass( std::shared_ptr<Pass> pass ) ;
+	std::shared_ptr<Pass> GetSubpassAs( const char * pszId ) const ;
+	std::shared_ptr<Pass> GetSubpassAt( size_t iPass ) const ;
+	int FindSubpass( const char * pszId ) const ;
+	size_t GetSubpassCount( void ) const ;
+	bool RemoveSubpass( std::shared_ptr<Pass> pass ) ;
+	std::shared_ptr<Pass> RemoveSubpassAt( size_t iPass ) ;
+	void RemoveAllSubpass( void ) ;
+
+public:
+	// シリアライズ
+	virtual void Serialize( NNSerializer& ser ) ;
+	// デシリアライズ
+	virtual bool Deserialize( NNDeserializer & dsr ) ;
+
+public:
+	// バッファ準備
+	virtual void PrepareBuffer
+		( BufferArrays& bufArrays,
+			const NNBufDim& dimInput,
+			uint32_t flagsBuffer,		// enum PrepareBufferFlag の組み合わせ
+			const BufferConfig& bufConfig ) ;
+	virtual void PrepareLossAndGradientArrays( LossAndGradientArrays& lagArrays ) ;
+	// 勾配リセット
+	virtual void ResetWorkInBatch( BufferArrays& bufArrays ) ;
+	virtual void ResetLossAndGrandient( LossAndGradientArrays& lagArrays ) ;
+	// エポック開始時処理
+	virtual void OnBeginEpoch( void ) ;
+	// エポック終了時処理
+	virtual void OnEndEpoch( BufferArrays& bufArrays ) ;
+	// 損失と勾配を合計する
+	virtual void AddLossAndGradient
+		( LossAndGradientArrays& lagArrays, const BufferArrays& bufArrays ) ;
+	// ミニバッチ毎の処理
+	virtual void PrepareForMiniBatch
+		( BufferArrays& bufArrays,
+			uint32_t flagsBuffer, std::random_device::result_type rndSeed ) const ;
+	// ストリーミングに連動してバッファをシフトする
+	virtual void ShiftBufferWithStreaming( BufferArrays& bufArrays, size_t xShift ) ;
+	// 出力層が再帰入力されている場合、学習の前に遅延バッファに教師データを入れる
+	virtual void PrepareOutputDelay
+		( BufferArrays& bufArrays, NNBuffer& bufTeacher ) ;
+
+protected:
+	// 保護オーバーロード（ミス防止用）
+	void PrepareLossAndGradientArray( LossAndGradientArray& lagArray ) ;
+	void ResetWorkInBatch( BufferArray& bufArray ) ;
+	void ResetLossAndGrandient( LossAndGradientArray& lagArray ) ;
+	void OnEndEpoch( BufferArray& bufArrays ) ;
+	void AddLossAndGradient
+		( LossAndGradientArray& lagArray, const BufferArray& bufArray ) ;
+
+public:
+	// モデルとデータの形状の検証
+	struct	VerifyResult	: public NNPerceptronArray::VerifyResult
+	{
+		int	iSubpass ;		// 主 MLP の時は -1
+	} ;
 	virtual bool VerifyDataShape
 		( VerifyResult& verfResult,
 			const BufferArrays& bufArrays,
 			const NNBufDim& dimTeaching, const NNBufDim& dimSource0 ) const ;
+	// レイヤー出力バッファサイズ取得
+	virtual NNBufDim GetLayerOutputSize
+		( int iLayer, const BufferArrays& bufArrays,
+			const NNBufDim& dimTeaching, const NNBufDim& dimSource0 ) const ;
+	// レイヤー出力バッファ取得
+	virtual NNBuffer * GetLayerOutputBuffer
+		( int iLayer, const BufferArrays& bufArrays,
+			NNBuffer * pbufTeacher, NNBuffer * pbufSource ) const ;
 
 public:
 	// 予測処理
@@ -428,25 +615,29 @@ public:
 		( BufferArrays& bufArrays, NNBuffer& bufInput,
 			bool flagForLearning = false, bool flagLowMemory = false ) ;
 	// 予測値の損失計算
-	double CalcLoss( BufferArrays& bufArrays, NNBuffer& bufTearcher ) ;
+	double CalcLoss
+		( BufferArrays& bufArrays, NNBuffer& bufTeacher ) ;
 
 public:
 	// 学習１回
 	virtual double Learning
 		( BufferArrays& bufArrays,
-			NNBuffer& bufTearcher, NNBuffer& bufInput,
+			NNBuffer& bufTeacher, NNBuffer& bufInput,
 			NNMultiLayerPerceptron * pForwardMLP = nullptr,
 			BufferArrays * pForwardBufArrays = nullptr ) ;
-	// 指定レイヤーのδ逆伝播処理
-	virtual void DeltaBackLayerAt
-		( size_t iLayer, bool flagOutputLayer, BufferArrays& bufArrays ) ;
 	// 勾配反映
 	virtual void GradientReflection
-		( BufferArrays& bufArrays, float deltaRate ) ;
+		( LossAndGradientArrays& lagArrays, float deltaRate ) ;
+protected:
 	virtual void GradientReflection
 		( LossAndGradientArray& lagArray, float deltaRate ) ;
+
+public:
 	// 平均損失値取得
-	double GetAverageLoss( const BufferArrays& bufArrays ) const ;
+	virtual double GetAverageLoss( const BufferArrays& bufArrays ) const ;
+	virtual double GetAverageLoss( const LossAndGradientArrays& lagArrays ) const ;
+protected:
+	double GetAverageLoss( const BufferArray& bufArray ) const ;
 	double GetAverageLoss( const LossAndGradientArray& lagArray ) const ;
 
 } ;

@@ -501,6 +501,7 @@ int PalesibylBasicApp::RunPrediction( void )
 		std::cout << m_strModelFile << " の読み込みに失敗しました" << std::endl ;
 		return	1 ;
 	}
+	BeforePrediction() ;
 
 	std::shared_ptr<NNMLPShell::Iterator>	pIter = MakePredictiveIter() ;
 

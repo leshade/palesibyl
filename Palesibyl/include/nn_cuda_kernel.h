@@ -334,6 +334,13 @@ void nncuda_LossDelta_MAE
 		const float * pTeaching, NNBufDim dimTeaching,
 		int nDepthwise, const NNLossParam& lp, cudaStream_t stream ) ;
 
+void nncuda_LossDelta_BernoulliNLL
+	( float * pLossDelta, NNBufDim dimLossDelta,
+		const float * pInAct, NNBufDim dimInAct,
+		const float * pOutput, NNBufDim dimOutput,
+		const float * pTeaching, NNBufDim dimTeaching,
+		int nDepthwise, const NNLossParam& lp, cudaStream_t stream ) ;
+
 void nncuda_LossDelta_Argmax
 	( float * pLossDelta, NNBufDim dimLossDelta,
 		const float * pInAct, NNBufDim dimInAct,

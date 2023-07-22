@@ -80,6 +80,8 @@ public:
 	virtual void BuildModel( NNMLPShell::Iterator * pIter ) = 0 ;
 	// 学習実行前
 	virtual void BeforeLearning( void ) = 0 ;
+	// 予測実行前
+	virtual void BeforePrediction( void ) = 0 ;
 	// 学習用イテレーター作成
 	virtual std::shared_ptr<NNMLPShell::Iterator> MakeLearningIter( void ) = 0 ;
 	// 予測用イテレーター作成

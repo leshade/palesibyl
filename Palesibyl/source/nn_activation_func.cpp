@@ -9,24 +9,24 @@ using namespace Palesibyl ;
 //////////////////////////////////////////////////////////////////////////////
 
 std::map< std::string, std::function< std::shared_ptr<NNActivationFunction>() > >
-	NNActivationFunction::s_mapMakeFunc ;
+	NNActivationFunction::s_mapMakeActFunc ;
 
 // 関数生成準備
 //////////////////////////////////////////////////////////////////////////////
 void NNActivationFunction::InitMake( void )
 {
-	s_mapMakeFunc.clear() ;
-	Register<NNActivationLinear>( NNAFunctionLinear::FunctionName ) ;
-	Register<NNActivationLinearMAE>( NNAFunctionLinearMAE::FunctionName ) ;
-	Register<NNActivationReLU>( NNAFunctionReLU::FunctionName ) ;
-	Register<NNActivationSigmoid>( NNAFunctionSigmoid::FunctionName ) ;
-	Register<NNActivationTanh>( NNAFunctionTanh::FunctionName ) ;
-	Register<NNActivationSoftmax>( NNAFunctionSoftmax::FunctionName ) ;
-	Register<NNActivationFastSoftmax>( NNAFunctionFastSoftmax::FunctionName ) ;
-	Register<NNActivationArgmax>( NNAFunctionArgmax::FunctionName ) ;
-	Register<NNActivationFastArgmax>( NNAFunctionFastArgmax::FunctionName ) ;
-	Register<NNActivationMaxPool>( NNAFunctionMaxPool::FunctionName ) ;
-	Register<NNActivationMultiply>( NNAFunctionMultiply::FunctionName ) ;
+	s_mapMakeActFunc.clear() ;
+	Register<NNActivationLinear>() ;
+	Register<NNActivationLinearMAE>() ;
+	Register<NNActivationReLU>() ;
+	Register<NNActivationSigmoid>() ;
+	Register<NNActivationTanh>() ;
+	Register<NNActivationSoftmax>() ;
+	Register<NNActivationFastSoftmax>() ;
+	Register<NNActivationArgmax>() ;
+	Register<NNActivationFastArgmax>() ;
+	Register<NNActivationMaxPool>() ;
+	Register<NNActivationMultiply>() ;
 }
 
 // 関数生成
@@ -34,9 +34,9 @@ void NNActivationFunction::InitMake( void )
 std::shared_ptr<NNActivationFunction>
 	NNActivationFunction::Make( const char * pszName )
 {
-	decltype(s_mapMakeFunc)::iterator iter = s_mapMakeFunc.find(pszName) ;
-	assert( iter != s_mapMakeFunc.end() ) ;
-	if ( iter != s_mapMakeFunc.end() )
+	decltype(s_mapMakeActFunc)::iterator iter = s_mapMakeActFunc.find(pszName) ;
+	assert( iter != s_mapMakeActFunc.end() ) ;
+	if ( iter != s_mapMakeActFunc.end() )
 	{
 		return	(iter->second)() ;
 	}

@@ -43,9 +43,12 @@ void NNSerializer::Write( const void * buf, size_t bytes )
 
 void NNSerializer::WriteString( const char * str )
 {
-	uint32_t	len = (uint32_t) strlen( str ) ;
+	uint32_t	len = (str != nullptr) ? (uint32_t) strlen( str ) : 0 ;
 	Write( &len, sizeof(len) ) ;
-	Write( str, len * sizeof(char) ) ;
+	if ( len > 0 )
+	{
+		Write( str, len * sizeof(char) ) ;
+	}
 }
 
 

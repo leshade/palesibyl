@@ -55,9 +55,10 @@ enum	ArgmaxOutputChannels
 
 // 損失関数 : 平均二乗誤差 (L2 loss)
 //////////////////////////////////////////////////////////////////////////////
-class	NNLossFunctionMSE
+class	NNFunctionLossMSE
 {
 public:
+	constexpr static const char	FunctionName[] = "loss_mse" ;
 	typedef	NNLossParam	LossParam ;
 
 	static inline size_t IsValidTeachingChannels
@@ -114,9 +115,10 @@ public:
 
 // 損失関数 : 平均絶対誤差 (L1 loss)
 //////////////////////////////////////////////////////////////////////////////
-class	NNLossFunctionMAE
+class	NNFunctionLossMAE
 {
 public:
+	constexpr static const char	FunctionName[] = "loss_mae" ;
 	typedef	NNLossParam	LossParam ;
 
 	static inline size_t IsValidTeachingChannels
@@ -172,11 +174,80 @@ public:
 	}
 } ;
 
-// 損失関数 : クロスエントロピー（σ(x)）
+// 損失関数 : Reconstruction Error (多変量ベルヌーイ分布の -log(B(x;p)) )
 //////////////////////////////////////////////////////////////////////////////
-class	NNLossFunctionSigmoid	: public NNLossFunctionMSE
+class	NNFunctionLossBernoulliNLL
 {
 public:
+	constexpr static const char	FunctionName[] = "loss_bernoulli_nll" ;
+	typedef	NNLossParam	LossParam ;
+
+	static inline size_t IsValidTeachingChannels
+		( size_t nSrcActChannels, size_t nDepthwise, size_t nTeachingChannels )
+	{
+		return	(nSrcActChannels == nTeachingChannels) ;
+	}
+	static inline float Loss
+		( const float * pInAct, const float * pOutAct,
+			const float * pTeaching, size_t nCount,
+			size_t nDepthwise, const LossParam& lp )
+	{
+		float	loss = 0.0f ;
+		for ( size_t i = 0; i < nCount; i ++ )
+		{
+			const float	y = pTeaching[i] ;
+			const float	x = pOutAct[i] ;
+			loss -= y * (float) log(x)
+					+ (1.0f - y) * (float) log(1.0f - x) ;
+		}
+		return	loss ;
+	}
+	static inline void LossDelta
+		( float * pLossDelta,
+			const float * pInAct, const float * pOutput,
+			const float * pTeaching, size_t nCount,
+			size_t nDepthwise, const LossParam& lp )
+	{
+		for ( size_t i = 0; i < nCount; i ++ )
+		{
+			const float	y = pTeaching[i] ;
+			const float	x = pOutput[i] ;
+			const float	xs = __min( __max( x, 0.00001f ), 0.99999f ) ;
+			pLossDelta[i] = (x - y) / (xs * (1.0f - xs)) ;
+		}
+	}
+	static inline __NN_CUDA_DEV__ float kernelLossDelta
+		( size_t iDstLossDelta,
+			const float * pInAct, const float * pOutput,
+			const float * pTeaching, size_t nCount,
+			size_t nDepthwise, const LossParam& lp )
+	{
+		const float	y = pTeaching[iDstLossDelta] ;
+		const float	x = pOutput[iDstLossDelta] ;
+		const float	xs = __min( __max( x, 0.00001f ), 0.99999f ) ;
+		return	(x - y) / (xs * (1.0f - xs)) ;
+	}
+	static inline void cudaLossDelta
+		( float * pLossDelta, NNBufDim dimLossDelta,
+			const float * pInAct, NNBufDim dimInAct,
+			const float * pOutput, NNBufDim dimOutput,
+			const float * pTeaching, NNBufDim dimTeaching,
+			size_t nDepthwise, const LossParam& lp, cudaStream_t stream )
+	{
+		nncuda_LossDelta_BernoulliNLL
+			( pLossDelta, dimLossDelta,
+				pInAct, dimInAct, pOutput, dimOutput,
+				pTeaching, dimTeaching, (int) nDepthwise, lp, stream ) ;
+	}
+} ;
+
+// 損失関数 : クロスエントロピー（σ(x)）
+//////////////////////////////////////////////////////////////////////////////
+class	NNFunctionLossSigmoid	: public NNFunctionLossMSE
+{
+public:
+	constexpr static const char	FunctionName[] = "loss_sigmoid" ;
+
 	static inline float Loss
 		( const float * pInAct, const float * pOutAct,
 			const float * pTeaching, size_t nCount,
@@ -196,9 +267,11 @@ public:
 
 // 損失関数 : クロスエントロピー（ソフトマックス関数）
 //////////////////////////////////////////////////////////////////////////////
-class	NNLossFunctionSoftmax	: public NNLossFunctionMSE
+class	NNFunctionLossSoftmax	: public NNFunctionLossMSE
 {
 public:
+	constexpr static const char	FunctionName[] = "loss_softmax" ;
+
 	static inline float Loss
 		( const float * pInAct, const float * pOutAct,
 			const float * pTeaching, size_t nCount,
@@ -224,9 +297,11 @@ public:
 
 // 損失関数 : クロスエントロピー（アーギュマックス関数・最大値インデックス出力）
 //////////////////////////////////////////////////////////////////////////////
-class	NNLossFunctionArgmax	: public NNLossFunctionSoftmax
+class	NNFunctionLossArgmax	: public NNFunctionLossSoftmax
 {
 public:
+	constexpr static const char	FunctionName[] = "loss_argmax" ;
+
 	static inline size_t IsValidTeachingChannels
 		( size_t nSrcActChannels, size_t nDepthwise, size_t nTeachingChannels )
 	{
@@ -313,9 +388,11 @@ public:
 
 // 損失関数 : クロスエントロピー（ソフトマックス関数・逆伝播高速化）
 //////////////////////////////////////////////////////////////////////////////
-class	NNLossFunctionFastSoftmax	: public NNLossFunctionSoftmax
+class	NNFunctionLossFastSoftmax	: public NNFunctionLossSoftmax
 {
 public:
+	constexpr static const char	FunctionName[] = "loss_fast_softmax" ;
+
 	static inline void LossDelta
 		( float * pLossDelta,
 			const float * pInAct, const float * pOutput,
@@ -355,9 +432,11 @@ public:
 // 損失関数 : クロスエントロピー
 //（アーギュマックス関数・最大値インデックス出力・逆伝播高速化）
 //////////////////////////////////////////////////////////////////////////////
-class	NNLossFunctionFastArgmax	: public NNLossFunctionArgmax
+class	NNFunctionLossFastArgmax	: public NNFunctionLossArgmax
 {
 public:
+	constexpr static const char	FunctionName[] = "loss_fast_argmax" ;
+
 	static inline void LossDelta
 		( float * pLossDelta,
 			const float * pInAct, const float * pOutput,

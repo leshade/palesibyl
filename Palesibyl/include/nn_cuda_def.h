@@ -6,6 +6,7 @@
 #include <mutex>
 #include <functional>
 #include <cuda_runtime.h>
+//#include <curand.h>
 
 namespace	Palesibyl
 {
