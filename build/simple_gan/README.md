@@ -12,7 +12,7 @@ samples/simple_gan/classes/ には適当に描いた文字画像を入れてい�
 - samples/simple_gan/learn.bat - 学習実行
 - samples/simple_gan/predict.bat - 予測実行
 - samples/simple_gan/classes/ - 学習用分類済み画像
-- samples/simple_gan/predict/src/ - 予測用出力
+- samples/simple_gan/predict/out/ - 予測用出力
 - samples/simple_gan/predict/src/ - 予測用ソース
 
 

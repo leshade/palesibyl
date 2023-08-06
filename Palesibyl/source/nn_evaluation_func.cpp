@@ -16,6 +16,7 @@ std::map< std::string, std::function< std::shared_ptr<NNEvaluationFunction>() > 
 void NNEvaluationFunction::InitMake( void )
 {
 	s_mapMakeFunc.clear() ;
+	Register<NNEvaluationMSE>() ;
 	Register<NNEvaluationR2Score>() ;
 	Register<NNEvaluationArgmaxAccuracy>() ;
 }
@@ -52,6 +53,50 @@ void NNEvaluationFunction::Deserialize( NNDeserializer & dsr )
 {
 }
 
+
+
+//////////////////////////////////////////////////////////////////////////////
+// 評価関数 : 平均二乗誤差 (Mean Squared Error)
+//////////////////////////////////////////////////////////////////////////////
+
+// 関数名
+//////////////////////////////////////////////////////////////////////////////
+const char * NNEvaluationMSE::GetFunctionName( void ) const
+{
+	return	FunctionName ;
+}
+
+// 関数表示名
+//////////////////////////////////////////////////////////////////////////////
+const char * NNEvaluationMSE::GetDisplayName( void ) const
+{
+	return	DisplayName ;
+}
+
+// 評価値計算
+//////////////////////////////////////////////////////////////////////////////
+double NNEvaluationMSE::Evaluate
+	( const NNBuffer& bufPredicted, const NNBuffer& bufObserved ) const
+{
+	const NNBufDim	dimPredicted = bufPredicted.GetSize() ;
+	const NNBufDim	dimObserved = bufObserved.GetSize() ;
+	assert( dimObserved.n * dimObserved.z == dimPredicted.n * dimPredicted.z ) ;
+	const size_t	nCount = __min( dimObserved.n * dimObserved.z,
+									dimPredicted.n * dimPredicted.z ) ;
+	if ( nCount == 0 )
+	{
+		return	0.0 ;
+	}
+	const float *	pPred = bufPredicted.GetConstBuffer() ;
+	const float *	pObsr = bufObserved.GetConstBuffer() ;
+	double			mse = 0.0 ;
+	for ( size_t i = 0; i < nCount; i ++ )
+	{
+		const float	e = pObsr[i] - pPred[i] ;
+		mse += e * e ;
+	}
+	return	mse / (double) nCount ;
+}
 
 
 

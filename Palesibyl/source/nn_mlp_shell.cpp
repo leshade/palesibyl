@@ -427,6 +427,9 @@ void NNMLPShell::DoPrediction( NNMLPShell::Iterator& iter )
 
 			// 予測
 			pOutput = m_mlp.Prediction( bufArrays, *pSource, false, flagLowMemory ) ;
+
+			OnProcessedPrediction
+				( iter.GetSourcePath().c_str(), pSource.get(), pOutput, bufArrays ) ;
 		}
 
 		if ( pOutput != nullptr )
@@ -641,7 +644,7 @@ bool NNMLPShell::LoadTrainingData
 		{
 			if ( m_config.flagsBehavior & behaviorPrintLearningFile )
 			{
-				Print( "\nsource: %s, %s",
+				Print( "\r\nsource: %s, %s",
 						iter.GetSourcePath().c_str(),
 						iter.GetTeachingDataPath().c_str() ) ;
 			}
@@ -1151,6 +1154,25 @@ void NNMLPShell::OnLearningProgress
 		}
 		break ;
 	}
+
+	for ( auto l : m_listeners )
+	{
+		l->OnLearningProgress( *this, le, lpi ) ;
+	}
+}
+
+// 予測出力完了
+//////////////////////////////////////////////////////////////////////////////
+void NNMLPShell::OnProcessedPrediction
+	( const char * pszSourcePath,
+		NNBuffer * pSource, NNBuffer * pOutput,
+		const NNMultiLayerPerceptron::BufferArrays& bufArrays )
+{
+	for ( auto l : m_listeners )
+	{
+		l->OnProcessedPrediction
+			( *this, pszSourcePath, pSource, pOutput, bufArrays ) ;
+	}
 }
 
 // ストリーム出力進捗表示
@@ -1174,6 +1196,33 @@ void NNMLPShell::OnStreamingProgress
 			m_nLastProgress = nProgress ;
 		}
 	}
+
+	for ( auto l : m_listeners )
+	{
+		l->OnStreamingProgress
+			( *this, pStreamer, current, total, psbOutput, xLastStream ) ;
+	}
+}
+
+// 進捗リスナ
+//////////////////////////////////////////////////////////////////////////////
+void NNMLPShell::AttachProgressListener( NNMLPShell::ProgressListener * pListener )
+{
+	if ( std::find( m_listeners.begin(), m_listeners.end(), pListener ) == m_listeners.end() )
+	{
+		m_listeners.push_back( pListener ) ;
+	}
+}
+
+bool NNMLPShell::DetachProgressListener( NNMLPShell::ProgressListener * pListener )
+{
+	auto	iterFound = std::find( m_listeners.begin(), m_listeners.end(), pListener ) ;
+	if ( iterFound == m_listeners.end() )
+	{
+		return	false ;
+	}
+	m_listeners.erase( iterFound ) ;
+	return	true ;
 }
 
 // メッセージ出力
@@ -1543,7 +1592,8 @@ bool NNMLPShellGenFileIterator::SetNextDataOnLoaded
 //////////////////////////////////////////////////////////////////////////////
 NNMLPShellFileIterator::NNMLPShellFileIterator
 		( const char * pszSourceDir,
-				const char * pszPairDir, bool flagOutputPair )
+				const char * pszPairDir, bool flagOutputPair,
+				bool flagRandValidation, double rateValidation )
 	: NNMLPShellGenFileIterator( !flagOutputPair ),
 		m_pathSourceDir( pszSourceDir ),
 		m_pathPairDir( pszPairDir ),
@@ -1563,7 +1613,13 @@ NNMLPShellFileIterator::NNMLPShellFileIterator
 	m_iValidation = m_files.size() ;
 	if ( !flagOutputPair )
 	{
-		m_iValidation -= (m_files.size() / 4) ;
+		if ( flagRandValidation )
+		{
+			Shuffle( 0, m_files.size(),
+						[this]( size_t iShuffle1, size_t iShuffle2 )
+							{ ShuffleFile( iShuffle1, iShuffle2 ) ; }) ;
+		}
+		m_iValidation -= (size_t) floor( m_files.size() * rateValidation ) ;
 	}
 
 	ResetIterator() ;
@@ -1778,11 +1834,16 @@ std::shared_ptr<NNBuffer>
 //////////////////////////////////////////////////////////////////////////////
 NNMLPShellFileClassIterator::NNMLPShellFileClassIterator
 		( const char * pszSourceDir, bool flagPrediction,
-			const char * pszClassDir, bool formatIndex )
+			const char * pszClassDir, bool formatIndex,
+			bool flagRandValidation, double rateValidation )
 	: NNMLPShellGenFileIterator( !flagPrediction ),
 		NNMLPShellFileClassifier( nullptr, formatIndex ),
 		m_pathSourceDir( pszSourceDir ), m_flagPrediction( flagPrediction )
 {
+	assert( rateValidation < 1.0 ) ;
+	assert( rateValidation >= 0.0 ) ;
+	std::vector<std::filesystem::path>	vValidations ;
+	std::vector<size_t>					vValidClass ;
 	if ( flagPrediction )
 	{
 		// ファイル列挙
@@ -1809,27 +1870,47 @@ NNMLPShellFileClassIterator::NNMLPShellFileClassIterator
 			pathDir /= m_classNames.at( iClass ) ;
 
 			// ファイル列挙
+			std::vector<std::filesystem::path>	vFiles ;
 			EnumerateFiles( pathDir.string().c_str(),
 							[&]( const std::filesystem::path& pathFile )
 			{
-				assert( m_classIndices.size() == m_files.size() ) ;
-				m_files.push_back( pathFile ) ;
-				m_classIndices.push_back( iClass ) ;
+				vFiles.push_back( pathFile ) ;
 			} ) ;
+
+			if ( flagRandValidation )
+			{
+				Shuffle( 0, vFiles.size(),
+					[&]( size_t iShuffle1, size_t iShuffle2 )
+						{
+							auto	temp = vFiles.at(iShuffle1) ;
+							vFiles.at(iShuffle1) = vFiles.at(iShuffle2) ;
+							vFiles.at(iShuffle2) = temp ;
+						} ) ;
+			}
+			size_t	iValid = vFiles.size()
+							- (size_t) floor(vFiles.size() * rateValidation) ;
+			for ( size_t i = 0; i < iValid; i ++ )
+			{
+				assert( m_classIndices.size() == m_files.size() ) ;
+				m_files.push_back( vFiles.at(i) ) ;
+				m_classIndices.push_back( iClass ) ;
+			}
+			for ( size_t i = iValid; i < vFiles.size(); i ++ )
+			{
+				assert( vValidClass.size() == vValidations.size() ) ;
+				vValidations.push_back( vFiles.at(i) ) ;
+				vValidClass.push_back( iClass ) ;
+			}
 		}
 	}
 
-	if ( !flagPrediction )
-	{
-		Shuffle( 0, m_files.size(),
-					[this]( size_t iShuffle1, size_t iShuffle2 )
-						{ ShuffleFile( iShuffle1, iShuffle2 ) ; }) ;
-	}
-
 	m_iValidation = m_files.size() ;
-	if ( !flagPrediction )
+
+	assert( vValidClass.size() == vValidations.size() ) ;
+	for ( size_t i = 0; i < vValidations.size(); i ++ )
 	{
-		m_iValidation -= (m_files.size() / 4) ;
+		m_files.push_back( vValidations.at(i) ) ;
+		m_classIndices.push_back( vValidClass.at(i) ) ;
 	}
 
 	ResetIterator() ;

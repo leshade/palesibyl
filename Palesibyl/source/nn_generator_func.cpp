@@ -148,40 +148,50 @@ void NNGaussianGenerator::Generate
 					dimRand.x, dimRand.y, stream.m_cudaStream ) ;
 		}
 		*/
-		const NNBufDim	dimRand = prgwb->m_bufRand.GetSize() ;
-		assert( dimDst.n == dimRand.n ) ;
-		assert( dimDst.z == dimRand.z ) ;
-		prgwb->m_bufRand.CommitCuda() ;
-
-		float *	pRand = prgwb->m_bufRand.GetBuffer() ;
-		for ( size_t i = 0; i < dimDst.n; i ++ )
+		if ( (iChannel == 0) && (nChannels == dimDst.z) )
 		{
-			for ( size_t z = 0; z < nChannels; z ++ )
-			{
-				pRand[iChannel + z] = prgwb->m_dist( prgwb->m_engine ) ;
-			}
-			pRand += dimDst.z ;
+			bufDst.CommitCudaWithHost() ;
+			cpuGenerateGaussian( bufDst, *prgwb, iChannel, nChannels ) ;
+			bufDst.CudaAsyncToDevice( stream.m_cudaStream ) ;
 		}
-		prgwb->m_bufRand.CudaAsyncToDevice( stream.m_cudaStream ) ;
-		bufDst.CudaCopyChannelFrom
-			( 0, 0, iChannel,
-				prgwb->m_bufRand, 0, 0, iChannel, nChannels,
-				dimRand.x, dimRand.y, stream.m_cudaStream ) ;
+		else
+		{
+			const NNBufDim	dimRand = prgwb->m_bufRand.GetSize() ;
+			assert( dimDst.n == dimRand.n ) ;
+			assert( dimDst.z == dimRand.z ) ;
+			prgwb->m_bufRand.CommitCuda() ;
+
+			cpuGenerateGaussian( prgwb->m_bufRand, *prgwb, iChannel, nChannels ) ;
+			prgwb->m_bufRand.CudaAsyncToDevice( stream.m_cudaStream ) ;
+
+			bufDst.CudaCopyChannelFrom
+				( 0, 0, iChannel,
+					prgwb->m_bufRand, 0, 0, iChannel, nChannels,
+					dimRand.x, dimRand.y, stream.m_cudaStream ) ;
+		}
 	}
 	else
 	{
-		const NNBufDim	dimDst = bufDst.GetSize() ;
-		assert( iChannel + nChannels <= dimDst.z ) ;
+		cpuGenerateGaussian( bufDst, *prgwb, iChannel, nChannels ) ;
+	}
+}
 
-		float *	pDst = bufDst.GetBuffer() ;
-		for ( size_t i = 0; i < dimDst.n; i ++ )
+void NNGaussianGenerator::cpuGenerateGaussian
+	( NNBuffer& bufDst,
+		NNGaussianGenerator::RandGenWorkBuf& wgwb,
+				size_t iChannel, size_t nChannels )
+{
+	const NNBufDim	dimDst = bufDst.GetSize() ;
+	assert( iChannel + nChannels <= dimDst.z ) ;
+
+	float *	pDst = bufDst.GetBuffer() ;
+	for ( size_t i = 0; i < dimDst.n; i ++ )
+	{
+		for ( size_t z = 0; z < nChannels; z ++ )
 		{
-			for ( size_t z = 0; z < nChannels; z ++ )
-			{
-				pDst[iChannel + z] = prgwb->m_dist( prgwb->m_engine ) ;
-			}
-			pDst += dimDst.z ;
+			pDst[iChannel + z] = wgwb.m_dist( wgwb.m_engine ) ;
 		}
+		pDst += dimDst.z ;
 	}
 }
 

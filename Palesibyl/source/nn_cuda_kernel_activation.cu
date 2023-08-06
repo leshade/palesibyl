@@ -81,6 +81,17 @@ void Palesibyl::nncuda_Activation_Multiply
 		( pDst, dimDst, pSrc, dimSrc, xLeftBounds, nDepthwise, stream ) ;
 }
 
+
+void Palesibyl::nncuda_Activation_Exp
+	( float * pDst, NNBufDim dimDst,
+		const float * pSrc, NNBufDim dimSrc,
+		size_t xLeftBounds, int nDepthwise, cudaStream_t stream )
+{
+	nncuda_Activation<NNAFunctionExp>
+		( pDst, dimDst, pSrc, dimSrc, xLeftBounds, nDepthwise, stream ) ;
+}
+
+
 size_t Palesibyl::nncuda_IsAcceptableActivationChannels
 	( size_t zDstChannels, size_t zSrcChannels )
 {
@@ -199,6 +210,20 @@ void Palesibyl::nncuda_Activation_DeltaBack_Multiply
 }
 
 
+void Palesibyl::nncuda_Activation_DeltaBack_Exp
+	( float * pDstDelta, NNBufDim dimDstDelta,
+		const float * pSrcDelta, NNBufDim dimSrcDelta,
+		const float * pSrcAct, NNBufDim dimSrcAct,
+		const float * pOutAct, NNBufDim dimOutAct, int nDepthwise, cudaStream_t stream )
+{
+	nncuda_Activation_DeltaBack<NNAFunctionExp>
+			( pDstDelta, dimDstDelta,
+				pSrcDelta, dimSrcDelta,
+				pSrcAct, dimSrcAct,
+				pOutAct, dimOutAct, nDepthwise, stream ) ;
+}
+
+
 
 //////////////////////////////////////////////////////////////////////////////
 // 損失関数δ
@@ -230,19 +255,6 @@ void Palesibyl::nncuda_LossDelta_MAE
 			pTeaching, dimTeaching, nDepthwise, lp, stream ) ;
 }
 
-void Palesibyl::nncuda_LossDelta_BernoulliNLL
-	( float * pLossDelta, NNBufDim dimLossDelta,
-		const float * pInAct, NNBufDim dimInAct,
-		const float * pOutput, NNBufDim dimOutput,
-		const float * pTeaching, NNBufDim dimTeaching,
-		int nDepthwise, const NNLossParam& lp, cudaStream_t stream )
-{
-	nncuda_LossDelta<NNFunctionLossBernoulliNLL,NNLossParam>
-		( pLossDelta, dimLossDelta,
-			pInAct, dimInAct, pOutput, dimOutput,
-			pTeaching, dimTeaching, nDepthwise, lp, stream ) ;
-}
-
 void Palesibyl::nncuda_LossDelta_Argmax
 	( float * pLossDelta, NNBufDim dimLossDelta,
 		const float * pInAct, NNBufDim dimInAct,
@@ -264,6 +276,45 @@ void Palesibyl::nncuda_LossDelta_FastArgmax
 		int nDepthwise, const NNLossParam& lp, cudaStream_t stream )
 {
 	nncuda_LossDelta<NNFunctionLossFastArgmax,NNLossParam>
+		( pLossDelta, dimLossDelta,
+			pInAct, dimInAct, pOutput, dimOutput,
+			pTeaching, dimTeaching, nDepthwise, lp, stream ) ;
+}
+
+void Palesibyl::nncuda_LossDelta_BernoulliNLL
+	( float * pLossDelta, NNBufDim dimLossDelta,
+		const float * pInAct, NNBufDim dimInAct,
+		const float * pOutput, NNBufDim dimOutput,
+		const float * pTeaching, NNBufDim dimTeaching,
+		int nDepthwise, const NNLossParam& lp, cudaStream_t stream )
+{
+	nncuda_LossDelta<NNFunctionLossBernoulliNLL,NNLossParam>
+		( pLossDelta, dimLossDelta,
+			pInAct, dimInAct, pOutput, dimOutput,
+			pTeaching, dimTeaching, nDepthwise, lp, stream ) ;
+}
+
+void Palesibyl::nncuda_LossDelta_MeanForKLDivergence
+	( float * pLossDelta, NNBufDim dimLossDelta,
+		const float * pInAct, NNBufDim dimInAct,
+		const float * pOutput, NNBufDim dimOutput,
+		const float * pTeaching, NNBufDim dimTeaching,
+		int nDepthwise, const NNLossParam2& lp, cudaStream_t stream )
+{
+	nncuda_LossDelta<NNFunctionLossMeanForKLDivergence,NNLossParam2>
+		( pLossDelta, dimLossDelta,
+			pInAct, dimInAct, pOutput, dimOutput,
+			pTeaching, dimTeaching, nDepthwise, lp, stream ) ;
+}
+
+void Palesibyl::nncuda_LossDelta_VarianceForKLDivergence
+	( float * pLossDelta, NNBufDim dimLossDelta,
+		const float * pInAct, NNBufDim dimInAct,
+		const float * pOutput, NNBufDim dimOutput,
+		const float * pTeaching, NNBufDim dimTeaching,
+		int nDepthwise, const NNLossParam2& lp, cudaStream_t stream )
+{
+	nncuda_LossDelta<NNFunctionLossVarianceForKLDivergence,NNLossParam2>
 		( pLossDelta, dimLossDelta,
 			pInAct, dimInAct, pOutput, dimOutput,
 			pTeaching, dimTeaching, nDepthwise, lp, stream ) ;

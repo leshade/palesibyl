@@ -70,6 +70,9 @@ public:
 	// 関数
 	typedef	L	NNLFunc ;
 
+	// 構築関数
+	NNLoss( void ) {}
+	NNLoss( const typename L::LossParam& lp ) : m_lossParam( lp ) {}
 	// 関数名
 	virtual const char * GetFunctionName( void) const
 	{
@@ -123,6 +126,24 @@ public:
 class	NNLossMSE	: public NNLoss<NNFunctionLossMSE> {} ;
 class	NNLossMAE	: public NNLoss<NNFunctionLossMAE> {} ;
 class	NNLossBernoulliNLL	: public NNLoss<NNFunctionLossBernoulliNLL> {} ;
+class	NNLossMeanForKLDivergence
+			: public NNLoss<NNFunctionLossMeanForKLDivergence>
+{
+public:
+	NNLossMeanForKLDivergence( void ) {}
+	NNLossMeanForKLDivergence
+			( const NNFunctionLossMeanForKLDivergence::LossParam& lp )
+		: NNLoss<NNFunctionLossMeanForKLDivergence>( lp ) { }
+} ;
+class	NNLossVarianceForKLDivergence
+			: public NNLoss<NNFunctionLossVarianceForKLDivergence>
+{
+public:
+	NNLossVarianceForKLDivergence( void ) {}
+	NNLossVarianceForKLDivergence
+			( const NNFunctionLossVarianceForKLDivergence::LossParam& lp )
+		: NNLoss<NNFunctionLossVarianceForKLDivergence>( lp ) { }
+} ;
 
 
 }

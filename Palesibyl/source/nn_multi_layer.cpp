@@ -290,7 +290,7 @@ NNPerceptronPtr NNPerceptronArray::AppendUpsamplingFixLayer
 	}
 	NNPerceptronPtr	pLayer =
 		std::make_shared<NNIdentityPerceptron>
-			( nDstChannels * (xUpsampling*yUpsampling), nSrcChannels, nSrcChannels,
+			( nDstChannels * (xUpsampling*yUpsampling), nSrcChannels, 1.0f, nSrcChannels,
 				std::make_shared<NNSamplerUpSampler>(xUpsampling,yUpsampling), activation ) ;
 	AppendLayer( pLayer ) ;
 	return	pLayer ;
@@ -324,7 +324,8 @@ NNPerceptronPtr NNPerceptronArray::AppendMaxPoolLayer
 	NNPerceptronPtr	pLayer =
 		std::make_shared<NNIdentityPerceptron>
 			( nSrcChannels * xPoolWidth * yPoolHeight,
-				nSrcChannels * xPoolWidth * yPoolHeight, nSrcChannels,
+				nSrcChannels * xPoolWidth * yPoolHeight,
+				1.0f, nSrcChannels,
 				std::make_shared<NNConvClampFilter>
 					( (int) xPoolWidth, (int) yPoolHeight, false,
 						(int) xPoolWidth, (int) yPoolHeight ),
@@ -401,7 +402,7 @@ NNPerceptronPtr
 	}
 	NNPerceptronPtr	pLayer =
 		std::make_shared<NNIdentityPerceptron>
-			( nDstChannels, nDstChannels * 2, nDstChannels,
+			( nDstChannels, nDstChannels * 2, 1.0f, nDstChannels,
 				std::make_shared<NNSamplerInjection>(), activation ) ;
 	AppendLayer( pLayer ) ;
 
@@ -429,7 +430,7 @@ NNPerceptronPtr
 	}
 	NNPerceptronPtr	pLayer =
 		std::make_shared<NNIdentityPerceptron>
-			( nDstChannels, nDstChannels * 2, nDstChannels,
+			( nDstChannels, nDstChannels * 2, 1.0f, nDstChannels,
 				std::make_shared<NNSamplerInjection>(), activation ) ;
 	AppendLayer( pLayer ) ;
 
@@ -451,7 +452,7 @@ NNPerceptronPtr
 {
 	NNPerceptronPtr	pLayer =
 		std::make_shared<NNIdentityPerceptron>
-			( nDstChannels * 2, nDstChannels * 2, nDstChannels,
+			( nDstChannels * 2, nDstChannels * 2, 1.0f, nDstChannels,
 				std::make_shared<NNSamplerInjection>(),
 				std::make_shared<NNActivationMultiply>() ) ;
 	AppendLayer( pLayer ) ;
@@ -472,7 +473,7 @@ NNPerceptronPtr
 {
 	NNPerceptronPtr	pLayer =
 		std::make_shared<NNIdentityPerceptron>
-			( nDstChannels * 2, nDstChannels * 2, nDstChannels,
+			( nDstChannels * 2, nDstChannels * 2, 1.0f, nDstChannels,
 				std::make_shared<NNSamplerInjection>(),
 				std::make_shared<NNActivationMultiply>() ) ;
 	AppendLayer( pLayer ) ;
@@ -483,6 +484,42 @@ NNPerceptronPtr
 		( LayerOffsetOf(pLayer2), iDelay2, 0, nDstChannels, xOffset2, yOffset2 ) ;
 
 	return	pLayer ;
+}
+
+// μ, log(σ^2) から乱数 z～N(μ,σ) を生成する
+//////////////////////////////////////////////////////////////////////////////
+NNPerceptronPtr NNPerceptronArray::AppendGaussianLayer
+	( size_t nDstChannels,
+		NNPerceptronPtr pLayerMean,		// μ
+		NNPerceptronPtr pLayerLnVar,	// log(σ^2)
+		const char * pszActivation )
+{
+	// exp(log(σ^2)/2) = σ へ変換
+	NNPerceptronPtr	pStdDev =
+		std::make_shared<NNIdentityPerceptron>
+			( nDstChannels, nDstChannels, 0.5f, 1,
+				std::make_shared<NNSamplerInjection>(),
+				std::make_shared<NNActivationExp>() ) ;
+	AppendLayer( pStdDev ) ;
+	pStdDev->AddConnection( LayerOffsetOf(pLayerLnVar), 0, 0, nDstChannels ) ;
+
+	// ｚ～N(0,1) 乱数生成
+	NNPerceptronPtr	pGaussian =
+		std::make_shared<NNIdentityPerceptron>
+			( nDstChannels, nDstChannels, 1.0f, 1,
+				std::make_shared<NNSamplerInjection>(),
+				std::make_shared<NNActivationLinear>() ) ;
+	pGaussian->AddConnection( NNPerceptron::conLayerNull, 0, 0, nDstChannels ) ;
+	pGaussian->SetGenerator( std::make_shared<NNGaussianGenerator>() ) ;
+	AppendLayer( pGaussian ) ;
+
+	// z * σ
+	NNPerceptronPtr	pRandam =
+		AppendPointwiseMul( nDstChannels, pStdDev, 0, pGaussian, 0 ) ;
+
+	// z * σ + μ
+	return	AppendPointwiseAdd
+		( nDstChannels, pRandam, 0, pLayerMean, 0, 0, 0, pszActivation ) ;
 }
 
 // レイヤー数取得
@@ -508,6 +545,21 @@ NNPerceptronPtr NNPerceptronArray::GetLayerAs( const char * pszId ) const
 		return	nullptr ;
 	}
 	return	GetLayerAt( (size_t) iLayer ) ;
+}
+
+NNPerceptronArray::LayerContext
+	NNPerceptronArray::GetLayerContextAt
+		( size_t iLayer, const NNPerceptronArray::BufferArray& bufArray ) const
+{
+	assert( iLayer < m_mlp.size() ) ;
+	LayerContext	lc ;
+	lc.pMLP = const_cast<NNPerceptronArray*>( this ) ;
+	lc.pBufArray = const_cast<NNPerceptron::BufferArray*>( &(bufArray.buffers) ) ;
+	lc.pLayer = m_mlp.at(iLayer).get() ;
+	lc.pBuffer = bufArray.buffers.at(iLayer).get() ;
+	lc.pWorks = bufArray.works.at(iLayer).get() ;
+	lc.pOutput = &(lc.pBuffer->bufOutput) ;
+	return	lc ;
 }
 
 // レイヤー削除
@@ -1007,6 +1059,10 @@ bool NNPerceptronArray::VerifyDataShape
 		{
 			const NNPerceptron::Connection
 						cn = pLayer->GetConnection().at(iCon) ;
+			if ( cn.iLayer == NNPerceptron::conLayerNull )
+			{
+				continue ;
+			}
 			NNBufDim	dimRef ;
 			if ( (((int) iLayer - cn.iLayer) < -1)
 				|| ((int)(iLayer - cn.iLayer) >= (int) bufArray.buffers.size()) )
@@ -1119,7 +1175,8 @@ NNBuffer * NNPerceptronArray::Prediction
 			pLayer->LowMemoryBuffer( *(bufArray.buffers.at(i)), i ) ;
 		}
 		bufArray.inBufs.at(i) =
-			pLayer->PrepareInput( bufArray.buffers, i, bufInput, stream ) ;
+			pLayer->PrepareInput
+				( bufArray.buffers, i, bufInput, iFirstLayer, stream ) ;
 		pLayer->Prediction
 			( *(bufArray.works.at(i)),
 				*(bufArray.buffers.at(i)),
@@ -1135,6 +1192,7 @@ NNBuffer * NNPerceptronArray::Prediction
 		}
 		if ( pOutput != nullptr )
 		{
+			pOutput->CommitCudaWithHost() ;
 			pOutput->CudaAsyncFromDevice( stream.m_cudaStream ) ;
 		}
 		stream.m_cudaStream.Synchronize() ;
@@ -1162,8 +1220,10 @@ double NNPerceptronArray::CalcLoss
 double NNPerceptronArray::Learning
 	( NNPerceptronArray::BufferArray& bufArray, NNLoopStream& stream,
 		NNBuffer& bufTeacher, NNBuffer& bufInput,
+		const NNPerceptronArray::LayerContext * pInputLayer,
 		NNPerceptronArray * pForwardMLP,
-		NNPerceptronArray::BufferArray * pForwardBufArrays )
+		NNPerceptronArray::BufferArray * pForwardBufArrays,
+		std::function<void()> funcAddLossDelta )
 {
 	assert( GetLayerCount() >= 1 ) ;
 	if ( GetLayerCount() == 0 )
@@ -1236,10 +1296,14 @@ double NNPerceptronArray::Learning
 		workSrcLayer.nLossSamples = 0 ;
 	}
 
+	// 追加的な損失関数
+	funcAddLossDelta() ;
+
 	// δ逆伝播
 	for ( size_t i = 0; i < GetLayerCount(); i ++ )
 	{
-		DeltaBackLayerAt( iLastLayer - i, (i == 0), bufArray, stream ) ;
+		DeltaBackLayerAt
+			( iLastLayer - i, (i == 0), pInputLayer, bufArray, stream ) ;
 	}
 
 	// δ逆伝播の２パス目
@@ -1267,7 +1331,8 @@ double NNPerceptronArray::Learning
 		for ( size_t i = 0; i <= (size_t) bufArray.iDelta2; i ++ )
 		{
 			DeltaBackLayerAt
-				( (size_t) bufArray.iDelta2 - i, false, bufArray, stream ) ;
+				( (size_t) bufArray.iDelta2 - i,
+					false, pInputLayer, bufArray, stream ) ;
 		}
 	}
 
@@ -1296,6 +1361,7 @@ double NNPerceptronArray::Learning
 //////////////////////////////////////////////////////////////////////////////
 void NNPerceptronArray::DeltaBackLayerAt
 	( size_t iLayer, bool flagOutputLayer,
+		const NNPerceptronArray::LayerContext * pInputLayer,
 		NNPerceptronArray::BufferArray& bufArray, NNLoopStream& stream )
 {
 	NNPerceptronPtr							pLayer = GetLayerAt(iLayer) ;
@@ -1320,7 +1386,17 @@ void NNPerceptronArray::DeltaBackLayerAt
 		pLayer->MatrixDeltaBack( bufWorks, *pBuf, stream ) ;
 
 		// 次のレイヤーへ伝播
-		pLayer->LayerDeltaBack( bufArray.buffers, *pBuf, stream ) ;
+		if ( iLayer > 0 )
+		{
+			pLayer->LayerDeltaBack( bufArray.buffers, *pBuf, stream ) ;
+		}
+		else if ( (pInputLayer != nullptr)
+			&& (pInputLayer->pLayer != nullptr)
+			&& (pInputLayer->pBuffer != nullptr) )
+		{
+			pLayer->LayerDeltaBackTo
+				( *(pInputLayer->pBuffer), *pBuf, stream ) ;
+		}
 	}
 }
 
@@ -1540,6 +1616,51 @@ void NNMultiLayerPerceptron::RemoveAllSubpass( void )
 	m_subpass.clear() ;
 }
 
+// μ, log(σ^2) の Gaussian KL Divergence 損失関数追加
+//////////////////////////////////////////////////////////////////////////////
+void NNMultiLayerPerceptron::AddLossGaussianKLDivergence
+	( NNPerceptronPtr pLayerMean,
+		NNPerceptronPtr pLayerLnVar,
+		float lossFactor, float deltaFactor )
+{
+	const size_t	nChannels = pLayerMean->GetMatrix().GetLineCount() ;
+	assert( nChannels == pLayerLnVar->GetMatrix().GetLineCount() ) ;
+
+	// μ に関する Gaussian KL Divergence
+	std::shared_ptr<Pass>	lossForMean = std::make_shared<Pass>() ;
+	lossForMean->m_dsc.iSourceLayer = layerMLPFirst + FindLayer( pLayerMean ) ;
+	lossForMean->m_dsc.iTeachingLayer = lossForMean->m_dsc.iSourceLayer ;
+	assert( lossForMean->m_dsc.iSourceLayer != layerMLPFirst - 1 ) ;
+	//
+	NNFunctionLossMeanForKLDivergence::LossParam
+								lpMean( lossFactor, deltaFactor ) ;
+	lossForMean->AppendLayer
+		( std::make_shared<NNIdentityPerceptron>
+			( nChannels, nChannels, 1.0f, 1,
+				std::make_shared<NNSamplerInjection>(),
+				std::make_shared<NNActivationLinear>() ) ) ;
+	lossForMean->SetLossFunction
+		( std::make_shared<NNLossMeanForKLDivergence>(lpMean) ) ;
+	AddSubpass( lossForMean ) ;
+
+	// log(σ^2) に関する Gaussian KL Divergence
+	std::shared_ptr<Pass>	lossForLnVar= std::make_shared<Pass>() ;
+	lossForLnVar->m_dsc.iSourceLayer = layerMLPFirst + FindLayer( pLayerLnVar ) ;
+	lossForLnVar->m_dsc.iTeachingLayer = lossForLnVar->m_dsc.iSourceLayer ;
+	assert( lossForLnVar->m_dsc.iSourceLayer != layerMLPFirst - 1 ) ;
+	//
+	NNFunctionLossVarianceForKLDivergence::LossParam
+								lpLnVar( lossFactor, deltaFactor ) ;
+	lossForLnVar->AppendLayer
+		( std::make_shared<NNIdentityPerceptron>
+			( nChannels, nChannels, 1.0f, 1,
+				std::make_shared<NNSamplerInjection>(),
+				std::make_shared<NNActivationExp>() ) ) ;
+	lossForLnVar->SetLossFunction
+		( std::make_shared<NNLossVarianceForKLDivergence>(lpLnVar) ) ;
+	AddSubpass( lossForLnVar ) ;
+}
+
 // シリアライズ
 //////////////////////////////////////////////////////////////////////////////
 void NNMultiLayerPerceptron::Serialize( NNSerializer& ser )
@@ -1733,10 +1854,16 @@ void NNMultiLayerPerceptron::PrepareBuffer
 	bufArrays.subpass.clear() ;
 	for ( size_t i = 0; i < m_subpass.size(); i ++ )
 	{
+		const NNBufDim	dimSubInput =
+			GetLayerOutputSize
+				( m_subpass.at(i)->m_dsc.iSourceLayer,
+					bufArrays, GetOutputSize(bufArrays), dimInput ) ;
 		std::shared_ptr<BufferArray>
 				pBufArray = std::make_shared<BufferArray>() ;
 		m_subpass.at(i)->PrepareBuffer
-			( *pBufArray, dimInput, flagsBuffer, bufConfig, bufArrays.stream ) ;
+			( *pBufArray, dimSubInput,
+				flagsBuffer | bufferPropagateDelta,
+				bufConfig, bufArrays.stream ) ;
 		bufArrays.subpass.push_back( pBufArray ) ;
 	}
 }
@@ -1995,6 +2122,32 @@ NNBuffer * NNMultiLayerPerceptron::GetLayerOutputBuffer
 	return	nullptr ;
 }
 
+// レイヤーコンテキスト取得
+//////////////////////////////////////////////////////////////////////////////
+NNPerceptronArray::LayerContext *
+	NNMultiLayerPerceptron::GetLayerContext
+		( NNPerceptronArray::LayerContext& ctxLayer, int iLayer,
+			const NNMultiLayerPerceptron::BufferArrays& bufArrays,
+			NNBuffer * pbufTeacher, NNBuffer * pbufSource ) const
+{
+	if ( iLayer == layerTeacher )
+	{
+		ctxLayer.pOutput = pbufTeacher ;
+		return	nullptr ;
+	}
+	else if ( iLayer == layerSource )
+	{
+		ctxLayer.pOutput = pbufSource ;
+		return	nullptr ;
+	}
+	else if ( (size_t) iLayer < bufArrays.buffers.size() )
+	{
+		ctxLayer = NNPerceptronArray::GetLayerContextAt( (size_t) iLayer, bufArrays ) ;
+		return	&ctxLayer ;
+	}
+	return	nullptr ;
+}
+
 // 予測処理
 //////////////////////////////////////////////////////////////////////////////
 NNBuffer * NNMultiLayerPerceptron::Prediction
@@ -2058,28 +2211,66 @@ double NNMultiLayerPerceptron::Learning
 		NNMultiLayerPerceptron * pForwardMLP,
 		NNMultiLayerPerceptron::BufferArrays * pForwardBufArrays )
 {
-	double	loss = NNPerceptronArray::Learning
-				( bufArrays, bufArrays.stream,
-					bufTeacher, bufInput, pForwardMLP, pForwardBufArrays ) ;
-
-	assert( m_subpass.size() == bufArrays.subpass.size() ) ;
-	for ( size_t i = 0; i < m_subpass.size(); i ++ )
+	double	loss = 0.0 ;
+	std::function<void()>	funcAddLossDelta = [&]()
 	{
-		NNBuffer *	pSubTeacher =
-			GetLayerOutputBuffer
-				( m_subpass.at(i)->m_dsc.iTeachingLayer,
-							bufArrays, &bufTeacher, &bufInput ) ;
-		NNBuffer *	pSubInput =
-			GetLayerOutputBuffer
-				( m_subpass.at(i)->m_dsc.iSourceLayer,
-							bufArrays, &bufTeacher, &bufInput ) ;
-		assert( pSubTeacher != nullptr ) ;
-		assert( pSubInput != nullptr ) ;
-		loss += m_subpass.at(i)->Learning
-			( *(bufArrays.subpass.at(i)), bufArrays.stream,
-				(pSubTeacher != nullptr) ? *pSubTeacher : bufTeacher,
-				(pSubInput != nullptr) ? *pSubInput : bufInput ) ;
-	}
+		assert( m_subpass.size() == bufArrays.subpass.size() ) ;
+		for ( size_t i = 0; i < m_subpass.size(); i ++ )
+		{
+			const PassDescription&	dsc = m_subpass.at(i)->m_dsc ;
+
+			NNBuffer *	pSubTeacher =
+				GetLayerOutputBuffer
+					( dsc.iTeachingLayer, bufArrays, &bufTeacher, &bufInput ) ;
+			NNBuffer *	pSubInput =
+				GetLayerOutputBuffer
+					( dsc.iSourceLayer, bufArrays, &bufTeacher, &bufInput ) ;
+
+			assert( pSubTeacher != nullptr ) ;
+			assert( pSubInput != nullptr ) ;
+			bool	flagWithCudaTrans = false ;
+			if ( (pSubTeacher != nullptr)
+				&& (pSubTeacher != &bufTeacher)
+				&& (pSubTeacher != &bufInput)
+				&& bufArrays.stream.m_useCuda
+				&& pSubTeacher->IsCommittedCuda() )
+			{
+				pSubTeacher->CommitCudaWithHost() ;
+				pSubTeacher->CudaAsyncFromDevice( bufArrays.stream.m_cudaStream ) ;
+				flagWithCudaTrans = true ;
+			}
+			if ( (pSubInput != nullptr)
+				&& (pSubInput != &bufTeacher)
+				&& (pSubInput != &bufInput)
+				&& bufArrays.stream.m_useCuda
+				&& pSubInput->IsCommittedCuda() )
+			{
+				pSubInput->CommitCudaWithHost() ;
+				pSubInput->CudaAsyncFromDevice( bufArrays.stream.m_cudaStream ) ;
+				flagWithCudaTrans = true ;
+			}
+			if ( flagWithCudaTrans )
+			{
+				bufArrays.stream.m_cudaStream.Synchronize() ;
+			}
+
+			LayerContext	ctxInput ;
+			LayerContext *	pctxInput =
+				GetLayerContext( ctxInput, dsc.iSourceLayer,
+									bufArrays, &bufTeacher, &bufInput ) ;
+
+			loss += m_subpass.at(i)->Learning
+				( *(bufArrays.subpass.at(i)), bufArrays.stream,
+					(pSubTeacher != nullptr) ? *pSubTeacher : bufTeacher,
+					(pSubInput != nullptr) ? *pSubInput : bufInput, pctxInput ) ;
+		}
+	} ;
+
+	loss += NNPerceptronArray::Learning
+				( bufArrays, bufArrays.stream,
+					bufTeacher, bufInput, nullptr,
+					pForwardMLP, pForwardBufArrays, funcAddLossDelta ) ;
+
 	return	loss ;
 }
 

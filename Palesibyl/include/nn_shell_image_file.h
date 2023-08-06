@@ -45,7 +45,8 @@ public:
 	NNMLPShellImageIterator
 		( const char * pszSourceDir,
 			const char * pszPairDir,
-			bool flagOutputPair, size_t nReqDepth = 0 ) ;
+			bool flagOutputPair, size_t nReqDepth = 0,
+			bool flagRandValidation = false, double rateValidation = 0.25 ) ;
 	// 消滅関数
 	~NNMLPShellImageIterator( void ) ;
 
@@ -112,7 +113,9 @@ public:
 	NNMLPShellImageClassifier
 		( const char * pszSourceDir,
 			bool flagPrediction,
-			const char * pszClassDir = nullptr, size_t nReqDepth = 0 ) ;
+			const char * pszClassDir = nullptr, size_t nReqDepth = 0,
+			bool formatIndex = false,
+			bool flagRandValidation = false, double rateValidation = 0.25 ) ;
 	// 消滅関数
 	~NNMLPShellImageClassifier( void ) ;
 

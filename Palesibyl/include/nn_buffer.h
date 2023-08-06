@@ -115,6 +115,7 @@ public:
 public:
 	// CUDA メモリ確保・解放 (Alloc 呼出し後)
 	bool CommitCuda( void ) ;
+	bool CommitCudaWithHost( void ) ;
 	void UncommitCuda( void ) ;
 	bool IsCommittedCuda( void ) const ;
 	// 次の CommitCuda でホストメモリから CUDA デバイスへ転送する

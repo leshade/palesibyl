@@ -53,13 +53,13 @@ void CudaStream::Destroy( void )
 
 // 同期
 //////////////////////////////////////////////////////////////////////////////
-void CudaStream::Synchronize( void )
+void CudaStream::Synchronize( void ) const
 {
 	assert( m_stream != nullptr ) ;
 	cudaVerify( cudaStreamSynchronize( m_stream ) ) ;
 }
 
-void CudaStream::VerifySync( void )
+void CudaStream::VerifySync( void ) const
 {
 	assert( m_stream != nullptr ) ;
 #if	!defined(NDEBUG) && defined(_DEBUG)

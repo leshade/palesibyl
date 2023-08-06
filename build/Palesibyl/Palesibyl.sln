@@ -45,6 +45,11 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "sample_resnet", "..\sample_
 		{23F96E75-D339-4AE3-9D84-971B7449DEDB} = {23F96E75-D339-4AE3-9D84-971B7449DEDB}
 	EndProjectSection
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "simple_vae", "..\simple_vae\simple_vae.vcxproj", "{4C769B59-BB6B-409D-B4B5-0496E3FB2BC4}"
+	ProjectSection(ProjectDependencies) = postProject
+		{23F96E75-D339-4AE3-9D84-971B7449DEDB} = {23F96E75-D339-4AE3-9D84-971B7449DEDB}
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -87,6 +92,10 @@ Global
 		{5A3F9487-70D1-412F-9173-E95E37C5E38A}.Debug|x64.Build.0 = Debug|x64
 		{5A3F9487-70D1-412F-9173-E95E37C5E38A}.Release|x64.ActiveCfg = Release|x64
 		{5A3F9487-70D1-412F-9173-E95E37C5E38A}.Release|x64.Build.0 = Release|x64
+		{4C769B59-BB6B-409D-B4B5-0496E3FB2BC4}.Debug|x64.ActiveCfg = Debug|x64
+		{4C769B59-BB6B-409D-B4B5-0496E3FB2BC4}.Debug|x64.Build.0 = Debug|x64
+		{4C769B59-BB6B-409D-B4B5-0496E3FB2BC4}.Release|x64.ActiveCfg = Release|x64
+		{4C769B59-BB6B-409D-B4B5-0496E3FB2BC4}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

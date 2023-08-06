@@ -27,6 +27,7 @@ void NNActivationFunction::InitMake( void )
 	Register<NNActivationFastArgmax>() ;
 	Register<NNActivationMaxPool>() ;
 	Register<NNActivationMultiply>() ;
+	Register<NNActivationExp>() ;
 }
 
 // 関数生成

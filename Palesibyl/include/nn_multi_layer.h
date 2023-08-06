@@ -117,6 +117,21 @@ public:
 		LossAndGradientArray( void ) : bufNormMax(0.0f) {}
 	} ;
 
+	// レイヤー・コンテキスト
+	struct	LayerContext
+	{
+		NNPerceptronArray *				pMLP ;
+		NNPerceptron::BufferArray *		pBufArray ;
+		NNPerceptron *					pLayer ;
+		NNBuffer *						pOutput ;
+		NNPerceptron::Buffer *			pBuffer ;
+		NNPerceptron::CPUWorkArray *	pWorks ;
+
+		LayerContext( void ) 
+			: pMLP(nullptr), pBufArray(nullptr), pLayer(nullptr),
+				pOutput(nullptr), pBuffer(nullptr), pWorks(nullptr) { }
+	} ;
+
 protected:
 	std::string						m_id ;
 	std::vector<NNPerceptronPtr>	m_mlp ;
@@ -257,12 +272,21 @@ public:
 			NNPerceptronPtr pLayer2, int iDelay2,
 			int xOffset2 = 0, int yOffset2 = 0 ) ;
 
+	// μ, log(σ^2) から乱数 z～N(μ,σ) を生成する
+	NNPerceptronPtr AppendGaussianLayer
+		( size_t nDstChannels,
+			NNPerceptronPtr pLayerMean,		// μ
+			NNPerceptronPtr pLayerLnVar,	// log(σ^2)
+			const char * pszActivation = activLinear ) ;
+
 	// レイヤー数取得
 	size_t GetLayerCount( void ) const ;
 
 	// レイヤー取得
 	NNPerceptronPtr GetLayerAt( size_t iLayer ) const ;
 	NNPerceptronPtr GetLayerAs( const char * pszId ) const ;
+	LayerContext GetLayerContextAt
+			( size_t iLayer, const BufferArray& bufArray ) const ;
 
 	// レイヤー削除
 	NNPerceptronPtr RemoveLayerAt( size_t iLayer ) ;
@@ -404,11 +428,14 @@ public:
 	double Learning
 		( BufferArray& bufArray, NNLoopStream& stream,
 			NNBuffer& bufTeacher, NNBuffer& bufInput,
+			const LayerContext * pInputLayer = nullptr,
 			NNPerceptronArray * pForwardMLP = nullptr,
-			BufferArray * pForwardBufArrays = nullptr ) ;
+			BufferArray * pForwardBufArrays = nullptr,
+			std::function<void()> funcAddLossDelta = [](){} ) ;
 	// 指定レイヤーのδ逆伝播処理
 	void DeltaBackLayerAt
 		( size_t iLayer, bool flagOutputLayer,
+			const LayerContext * pInputLayer,
 			BufferArray& bufArrays, NNLoopStream& stream ) ;
 	// 勾配反映
 	void GradientReflection
@@ -547,6 +574,12 @@ public:
 	std::shared_ptr<Pass> RemoveSubpassAt( size_t iPass ) ;
 	void RemoveAllSubpass( void ) ;
 
+	// μ, log(σ^2) の Gaussian KL Divergence 損失関数追加
+	void AddLossGaussianKLDivergence
+		( NNPerceptronPtr pLayerMean,
+			NNPerceptronPtr pLayerLnVar,
+			float lossFactor = 1.0f, float deltaFactor = 1.0f ) ;
+
 public:
 	// シリアライズ
 	virtual void Serialize( NNSerializer& ser ) ;
@@ -607,6 +640,11 @@ public:
 	// レイヤー出力バッファ取得
 	virtual NNBuffer * GetLayerOutputBuffer
 		( int iLayer, const BufferArrays& bufArrays,
+			NNBuffer * pbufTeacher, NNBuffer * pbufSource ) const ;
+	// レイヤーコンテキスト取得
+	virtual LayerContext * GetLayerContext
+		( LayerContext& ctxLayer, int iLayer,
+			const BufferArrays& bufArrays,
 			NNBuffer * pbufTeacher, NNBuffer * pbufSource ) const ;
 
 public:

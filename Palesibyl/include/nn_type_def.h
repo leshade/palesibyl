@@ -70,6 +70,15 @@ struct	NNLossParam
 	// ※デフォルトの損失関数にパラメータはない
 } ;
 
+struct	NNLossParam2
+{
+	float	lossFactor ;
+	float	deltaFactor ;
+
+	NNLossParam2( void ) : lossFactor(1.0f), deltaFactor(1.0f) {}
+	NNLossParam2( float lf, float df ) : lossFactor(lf), deltaFactor(df) {}
+} ;
+
 
 
 //////////////////////////////////////////////////////////////////////////////

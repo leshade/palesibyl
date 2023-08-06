@@ -2,7 +2,7 @@
 #define	__NN_CUDA_DEV__	__device__
 
 #include "nn_cuda_kernel.h"
-#include "nn_function.h"
+#include "nn_function2.h"
 
 using namespace Palesibyl ;
 

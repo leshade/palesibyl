@@ -115,6 +115,14 @@ public:
 			}
 		}
 	}
+	void AllocateHost( void ) 
+	{
+		if ( (m_nLength > 0) && (m_pHostMem == nullptr) )
+		{
+			const size_t	nBytes = m_nLength * sizeof(T) ;
+			cudaVerify( cudaMallocHost<T>( &m_pHostMem, nBytes ) ) ;
+		}
+	}
 	// メモリ解放
 	void Free( void )
 	{
@@ -245,9 +253,9 @@ public:
 	// 破棄
 	void Destroy( void ) ;
 	// 同期
-	void Synchronize( void ) ;
+	void Synchronize( void ) const ;
 	// 同期（デバッグ・コンパイル時のみ）
-	void VerifySync( void ) ;
+	void VerifySync( void ) const ;
 	// cudaStream_t 取得
 	cudaStream_t GetStream( void ) const ;
 	operator cudaStream_t ( void ) const ;

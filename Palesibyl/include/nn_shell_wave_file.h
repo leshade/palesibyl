@@ -163,7 +163,8 @@ public:
 			const char * pszPairDir,
 			bool flagOutputPair, size_t nReqChannels = 0,
 			size_t nPackSamples = 1, size_t nUnpackSamples = 1,
-			size_t nReqFrequency = 0 ) ;
+			size_t nReqFrequency = 0,
+			bool flagRandValidation = false, double rateValidation = 0.25 ) ;
 	// 消滅関数
 	~NNMLPShellWaveIterator( void ) ;
 
@@ -206,7 +207,8 @@ public:
 		( const char * pszSourceDir, const char * pszPairDir,
 			const NNBufDim& dimCrop, CropOutOfBounds cob = cropPadZero,
 			size_t nPackSamples = 1, size_t nUnpackSamples = 1,
-			size_t nReqFrequency = 0 ) ;
+			size_t nReqFrequency = 0,
+			bool flagRandValidation = false, double rateValidation = 0.25 ) ;
 	// 読み込んだバッファを処理して次のデータとして設定する
 	virtual bool SetNextDataOnLoaded
 				( std::shared_ptr<NNBuffer> pSource,

@@ -776,6 +776,23 @@ NNBufDim NNPerceptron::CalcInputDim
 	NNBufDim	dimInput( 0, 0, 0 ) ;
 	for ( auto cn : m_connection )
 	{
+		if ( cn.iLayer == NNPerceptron::conLayerNull )
+		{
+			assert( cn.nChannels != 0 ) ;
+			if ( dimInput.x * dimInput.y == 0 )
+			{
+				NNBufDim	dimRef = dimSrc0 ;
+				if ( iThisLayer >= 1 )
+				{
+					dimRef = funcGetDim(iThisLayer - 1) ;
+				}
+				dimInput.x = dimRef.x ;
+				dimInput.y = dimRef.y ;
+				dimInput.n = dimInput.x * dimInput.y ;
+			}
+			dimInput.z += cn.nChannels ;
+			continue ;
+		}
 		NNBufDim	dimRef ;
 		if ( (cn.iLayer <= (int) iThisLayer)
 			&& ((size_t)(iThisLayer - cn.iLayer) < nLayerCount) )
@@ -1210,7 +1227,7 @@ void NNPerceptron::AddLossAndGradient
 NNPerceptron::InputBuffer NNPerceptron::PrepareInput
 	( const NNPerceptron::BufferArray& bufArray,
 		size_t iThisLayer, NNBuffer& bufInput0,
-		NNLoopStream& stream )
+		size_t iFirstInputLayer, NNLoopStream& stream )
 {
 	InputBuffer	inBuf ;
 
@@ -1222,7 +1239,7 @@ NNPerceptron::InputBuffer NNPerceptron::PrepareInput
 		{
 			iOffsetLayer = m_connection.at(0).iLayer ;
 		}
-		if ( iOffsetLayer <= iThisLayer )
+		if ( iOffsetLayer + iFirstInputLayer <= iThisLayer )
 		{
 			size_t	iRefLayer = iThisLayer - iOffsetLayer ;
 			inBuf.pInput = &(bufArray.at(iRefLayer)->bufOutput) ;
@@ -1275,7 +1292,7 @@ NNPerceptron::InputBuffer NNPerceptron::PrepareInput
 			}
 			NNBuffer *	pInputBuf = &bufInput0 ;
 			int			iDelay = 0 ;
-			if ( (cn.iLayer <= (int) iThisLayer)
+			if ( (cn.iLayer + (int) iFirstInputLayer <= (int) iThisLayer)
 				&& ((size_t) (iThisLayer - cn.iLayer) < bufArray.size()) )
 			{
 				size_t	iRefLayer = iThisLayer - cn.iLayer ;
@@ -2505,14 +2522,16 @@ void NNPerceptron::LayerDeltaBackTo
 	if ( stream.m_useCuda )
 	{
 		bufDst.bufPrevDelta.CommitCuda() ;
-		bufDst.bufPrevDelta.CudaCopyChannelFrom
+		bufDst.bufPrevDelta.CudaAddChannelFrom
 			( 0, 0, 0, bufThis.bufOutDelta, 0, 0, 0, dimRef.z,
-				dimRef.x, dimRef.y, stream.m_cudaStream ) ;
+				dimRef.x, dimRef.y, m_deltaFactor, stream.m_cudaStream ) ;
 	}
 	else
 	{
 		bufDst.bufPrevDelta.Commit() ;
-		bufDst.bufPrevDelta.CopyChannelFrom( 0, bufThis.bufOutDelta, 0, dimRef.z ) ;
+		bufDst.bufPrevDelta.AddChannelValue
+			( 0, 0, 0, bufThis.bufOutDelta, 0, 0, dimRef.z,
+				dimRef.x, dimRef.y, m_deltaFactor ) ;
 	}
 }
 
@@ -2720,19 +2739,22 @@ void NNFixedPerceptron::cudaIntegrateMatrixGradient
 // 構築関数
 //////////////////////////////////////////////////////////////////////////////
 NNIdentityPerceptron::NNIdentityPerceptron( void )
+	: m_scaler( 1.0f )
 {
 }
 
 NNIdentityPerceptron::NNIdentityPerceptron
-	( size_t nDstCount, size_t nSrcCount, size_t nDepthwise,
+	( size_t nDstCount, size_t nSrcCount,
+		float scaler, size_t nDepthwise,
 		std::shared_ptr<NNSamplingFilter> sampler,
 		std::shared_ptr<NNActivationFunction> activation )
+	: m_scaler( scaler )
 {
 	Create( nDstCount, nSrcCount, nDepthwise, 0, sampler, activation ) ;
 }
 
 NNIdentityPerceptron::NNIdentityPerceptron( const NNIdentityPerceptron& idp )
-	: NNFixedPerceptron( idp )
+	: NNFixedPerceptron( idp ), m_scaler( idp.m_scaler )
 {
 }
 
@@ -2764,8 +2786,31 @@ void NNIdentityPerceptron::Specialize( void )
 		}
 		for ( size_t col = lineOdd; col < wMatrixCol; col += nUnitSize )
 		{
-			pMatrixLine[col] = 1.0f ;
+			pMatrixLine[col] = m_scaler ;
 		}
 	}
 }
+
+// シリアライズ
+//////////////////////////////////////////////////////////////////////////////
+void NNIdentityPerceptron::SerializeExtendInfo( NNSerializer& ser )
+{
+	uint32_t	zero = 0 ;
+	ser.Write( &zero, sizeof(zero) ) ;
+	ser.Write( &m_scaler, sizeof(m_scaler) ) ;
+}
+
+// デシリアライズ
+//////////////////////////////////////////////////////////////////////////////
+bool NNIdentityPerceptron::DeserializeExtendInfo( NNDeserializer & dsr )
+{
+	if ( dsr.GetChunkBytes() >= sizeof(uint32_t) + sizeof(m_scaler) )
+	{
+		uint32_t	zero = 0 ;
+		dsr.Read( &zero, sizeof(zero) ) ;
+		dsr.Read( &m_scaler, sizeof(m_scaler) ) ;
+	}
+	return	true ;
+}
+
 

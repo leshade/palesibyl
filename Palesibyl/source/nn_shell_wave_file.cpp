@@ -530,8 +530,11 @@ NNMLPShellWaveIterator::NNMLPShellWaveIterator
 	( const char * pszSourceDir,
 		const char * pszPairDir,
 		bool flagOutputPair, size_t nReqChannels,
-		size_t nPackSamples, size_t nUnpackSamples, size_t nReqFrequency )
-	: NNMLPShellFileIterator( pszSourceDir, pszPairDir, flagOutputPair ),
+		size_t nPackSamples, size_t nUnpackSamples, size_t nReqFrequency,
+		bool flagRandValidation, double rateValidation )
+	: NNMLPShellFileIterator
+		( pszSourceDir, pszPairDir, flagOutputPair,
+				flagRandValidation, rateValidation ),
 		m_nReqChannels( nReqChannels ),
 		m_nPackSamples( nPackSamples ),
 		m_nUnpackSamples( nUnpackSamples ),
@@ -606,10 +609,12 @@ NNMLPShellWaveCropper::NNMLPShellWaveCropper
 	( const char * pszSourceDir,
 		const char * pszPairDir, const NNBufDim& dimCrop,
 		NNMLPShellWaveCropper::CropOutOfBounds cob,
-		size_t nPackSamples, size_t nUnpackSamples, size_t nReqFrequency )
+		size_t nPackSamples, size_t nUnpackSamples, size_t nReqFrequency,
+		bool flagRandValidation, double rateValidation )
 	: NNMLPShellWaveIterator
 			( pszSourceDir, pszPairDir, false,
-				dimCrop.z, nPackSamples, nUnpackSamples, nReqFrequency ),
+				dimCrop.z, nPackSamples, nUnpackSamples,
+				nReqFrequency, flagRandValidation, rateValidation ),
 		m_engine( m_random() ),
 		m_dimCrop( dimCrop ), m_cobCrop( cob )
 {

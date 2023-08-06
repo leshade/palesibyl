@@ -346,8 +346,11 @@ bool NNImageCodec::SaveToFile
 //////////////////////////////////////////////////////////////////////////////
 NNMLPShellImageIterator::NNMLPShellImageIterator
 	( const char * pszSourceDir,
-		const char * pszPairDir, bool flagOutputPair, size_t nReqDepth )
-	: NNMLPShellFileIterator( pszSourceDir, pszPairDir, flagOutputPair ),
+		const char * pszPairDir, bool flagOutputPair, size_t nReqDepth,
+		bool flagRandValidation, double rateValidation )
+	: NNMLPShellFileIterator
+		( pszSourceDir, pszPairDir,
+			flagOutputPair, flagRandValidation, rateValidation ),
 		m_nReqDepth( nReqDepth )
 {
 	NNImageCodec::InitializeLib() ;
@@ -472,8 +475,11 @@ std::shared_ptr<NNBuffer>
 //////////////////////////////////////////////////////////////////////////////
 NNMLPShellImageClassifier::NNMLPShellImageClassifier
 	( const char * pszSourceDir,
-		bool flagPrediction, const char * pszClassDir, size_t nReqDepth )
-	: NNMLPShellFileClassIterator( pszSourceDir, flagPrediction, pszClassDir ),
+		bool flagPrediction, const char * pszClassDir, size_t nReqDepth,
+		bool formatIndex, bool flagRandValidation, double rateValidation )
+	: NNMLPShellFileClassIterator
+		( pszSourceDir, flagPrediction, pszClassDir,
+			formatIndex, flagRandValidation, rateValidation ),
 		m_nReqDepth( nReqDepth )
 {
 	NNImageCodec::InitializeLib() ;

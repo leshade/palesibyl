@@ -603,6 +603,25 @@ bool NNBuffer::CommitCuda( void )
 	return	true ;
 }
 
+bool NNBuffer::CommitCudaWithHost( void )
+{
+	if ( !cudaIsAvailable() )
+	{
+		return	false ;
+	}
+	m_cudaFlags &= ~cudaDeviceOnly ;
+	if ( !m_commitCuda )
+	{
+		return	CommitCuda() ;
+	}
+	else
+	{
+		assert( m_cudaMemory != nullptr ) ;
+		m_cudaMemory->AllocateHost() ;
+	}
+	return	true ;
+}
+
 void NNBuffer::UncommitCuda( void )
 {
 	if ( m_commitCuda )

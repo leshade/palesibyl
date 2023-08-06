@@ -148,7 +148,7 @@ namespace PalesibylTest
 			{
 				perceptron.ResetWorkArrayInBatch( works ) ;
 				NNPerceptron::InputBuffer
-					inBuf = perceptron.PrepareInput( bufArray, 0, bufTrainIn, stream ) ;
+					inBuf = perceptron.PrepareInput( bufArray, 0, bufTrainIn, 0, stream ) ;
 				perceptron.cpuPrediction( works, *pBuf, inBuf, stream ) ;
 				perceptron.cpuLossDelta( works, *pBuf, bufTrainOut, stream ) ;
 				perceptron.cpuCalcMatrixGradient( works, *pBuf, inBuf, stream ) ;
@@ -210,7 +210,7 @@ namespace PalesibylTest
 			{
 				perceptron.ResetWorkArrayInBatch( works ) ;
 				NNPerceptron::InputBuffer
-					inBuf = perceptron.PrepareInput( bufArray, 0, bufTrainIn, stream ) ;
+					inBuf = perceptron.PrepareInput( bufArray, 0, bufTrainIn, 0, stream ) ;
 				perceptron.Prediction( works, *pBuf, inBuf, stream ) ;
 				perceptron.LossDelta( works, *pBuf, bufTrainOut, stream ) ;
 				perceptron.CalcMatrixGradient( works, *pBuf, inBuf, stream ) ;

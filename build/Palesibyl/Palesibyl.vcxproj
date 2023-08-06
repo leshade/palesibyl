@@ -119,7 +119,10 @@
     <ClInclude Include="..\..\Palesibyl\include\nn_cuda_util.h" />
     <ClInclude Include="..\..\Palesibyl\include\nn_evaluation_func.h" />
     <ClInclude Include="..\..\Palesibyl\include\nn_function.h" />
+    <ClInclude Include="..\..\Palesibyl\include\nn_function2.h" />
+    <ClInclude Include="..\..\Palesibyl\include\nn_generator_func.h" />
     <ClInclude Include="..\..\Palesibyl\include\nn_loop_stream.h" />
+    <ClInclude Include="..\..\Palesibyl\include\nn_loss_func.h" />
     <ClInclude Include="..\..\Palesibyl\include\nn_matrix.h" />
     <ClInclude Include="..\..\Palesibyl\include\nn_mlp_shell.h" />
     <ClInclude Include="..\..\Palesibyl\include\nn_multi_layer.h" />
@@ -143,6 +146,8 @@
     <ClCompile Include="..\..\Palesibyl\source\nn_cuda_def.cpp" />
     <ClCompile Include="..\..\Palesibyl\source\nn_cuda_util.cpp" />
     <ClCompile Include="..\..\Palesibyl\source\nn_evaluation_func.cpp" />
+    <ClCompile Include="..\..\Palesibyl\source\nn_generator_func.cpp" />
+    <ClCompile Include="..\..\Palesibyl\source\nn_loss_func.cpp" />
     <ClCompile Include="..\..\Palesibyl\source\nn_matrix.cpp" />
     <ClCompile Include="..\..\Palesibyl\source\nn_mlp_shell.cpp" />
     <ClCompile Include="..\..\Palesibyl\source\nn_multi_layer.cpp" />

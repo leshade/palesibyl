@@ -252,6 +252,13 @@ void nncuda_Activation_Multiply
 		const float * pSrc, NNBufDim dimSrc,
 		size_t xLeftBounds, int nDepthwise, cudaStream_t stream ) ;
 
+
+void nncuda_Activation_Exp
+	( float * pDst, NNBufDim dimDst,
+		const float * pSrc, NNBufDim dimSrc,
+		size_t xLeftBounds, int nDepthwise, cudaStream_t stream ) ;
+
+
 size_t nncuda_IsAcceptableActivationChannels( size_t zDstChannels, size_t zSrcChannels ) ;
 
 
@@ -316,6 +323,14 @@ void nncuda_Activation_DeltaBack_Multiply
 		int nDepthwise, cudaStream_t stream ) ;
 
 
+void nncuda_Activation_DeltaBack_Exp
+	( float * pDstDelta, NNBufDim dimDstDelta,
+		const float * pSrcDelta, NNBufDim dimSrcDelta,
+		const float * pSrcAct, NNBufDim dimSrcAct,
+		const float * pOutAct, NNBufDim dimOutAct,
+		int nDepthwise, cudaStream_t stream ) ;
+
+
 
 // 損失関数δ
 //////////////////////////////////////////////////////////////////////////////
@@ -328,13 +343,6 @@ void nncuda_LossDelta_MSE
 		int nDepthwise, const NNLossParam& lp, cudaStream_t stream ) ;
 
 void nncuda_LossDelta_MAE
-	( float * pLossDelta, NNBufDim dimLossDelta,
-		const float * pInAct, NNBufDim dimInAct,
-		const float * pOutput, NNBufDim dimOutput,
-		const float * pTeaching, NNBufDim dimTeaching,
-		int nDepthwise, const NNLossParam& lp, cudaStream_t stream ) ;
-
-void nncuda_LossDelta_BernoulliNLL
 	( float * pLossDelta, NNBufDim dimLossDelta,
 		const float * pInAct, NNBufDim dimInAct,
 		const float * pOutput, NNBufDim dimOutput,
@@ -354,6 +362,28 @@ void nncuda_LossDelta_FastArgmax
 		const float * pOutput, NNBufDim dimOutput,
 		const float * pTeaching, NNBufDim dimTeaching,
 		int nDepthwise, const NNLossParam& lp, cudaStream_t stream ) ;
+
+
+void nncuda_LossDelta_BernoulliNLL
+	( float * pLossDelta, NNBufDim dimLossDelta,
+		const float * pInAct, NNBufDim dimInAct,
+		const float * pOutput, NNBufDim dimOutput,
+		const float * pTeaching, NNBufDim dimTeaching,
+		int nDepthwise, const NNLossParam& lp, cudaStream_t stream ) ;
+
+void nncuda_LossDelta_MeanForKLDivergence
+	( float * pLossDelta, NNBufDim dimLossDelta,
+		const float * pInAct, NNBufDim dimInAct,
+		const float * pOutput, NNBufDim dimOutput,
+		const float * pTeaching, NNBufDim dimTeaching,
+		int nDepthwise, const NNLossParam2& lp, cudaStream_t stream ) ;
+
+void nncuda_LossDelta_VarianceForKLDivergence
+	( float * pLossDelta, NNBufDim dimLossDelta,
+		const float * pInAct, NNBufDim dimInAct,
+		const float * pOutput, NNBufDim dimOutput,
+		const float * pTeaching, NNBufDim dimTeaching,
+		int nDepthwise, const NNLossParam2& lp, cudaStream_t stream ) ;
 
 
 

@@ -342,12 +342,43 @@ public:
 	virtual void OnLearningProgress
 		( LearningEvent le, const LearningProgressInfo& lpi ) ;
 
+	// 予測出力完了
+	virtual void OnProcessedPrediction
+		( const char * pszSourcePath,
+			NNBuffer * pSource, NNBuffer * pOutput,
+			const NNMultiLayerPerceptron::BufferArrays& bufArrays ) ;
+
 	// ストリーム出力進捗表示
 	virtual void OnStreamingProgress
 		( Streamer * pStreamer,
 			size_t current, size_t total,
 			NNStreamBuffer * psbOutput, size_t xLastStream ) ;
 
+	// 進捗リスナ
+	class	ProgressListener
+	{
+	public:
+		virtual void OnLearningProgress
+			( NNMLPShell& shell,
+				LearningEvent le, const LearningProgressInfo& lpi ) {} ;
+		virtual void OnProcessedPrediction
+			( NNMLPShell& shell,
+				const char * pszSourcePath,
+				NNBuffer * pSource, NNBuffer * pOutput,
+				const NNMultiLayerPerceptron::BufferArrays& bufArrays ) {} ;
+		virtual void OnStreamingProgress
+			( NNMLPShell& shell,
+				Streamer * pStreamer,
+				size_t current, size_t total,
+				NNStreamBuffer * psbOutput, size_t xLastStream ) {} ;
+	} ;
+	void AttachProgressListener( ProgressListener * pListener ) ;
+	bool DetachProgressListener( ProgressListener * pListener ) ;
+
+protected:
+	std::vector<ProgressListener*>	m_listeners ;
+
+public:
 	// メッセージ出力
 	virtual void Print( const char * pszFormat, ... ) const ;
 	// 処理中断
@@ -500,7 +531,8 @@ public:
 	// 構築関数
 	NNMLPShellFileIterator
 		( const char * pszSourceDir,
-			const char * pszPairDir, bool flagOutputPair ) ;
+			const char * pszPairDir, bool flagOutputPair,
+			bool flagRandValidation = false, double rateValidation = 0.25 ) ;
 
 public:
 	// 最後に取得した入力データに対応する予測データを出力する
@@ -583,7 +615,8 @@ public:
 	// 構築関数
 	NNMLPShellFileClassIterator
 		( const char * pszSourceDir, bool flagPrediction,
-			const char * pszClassDir = nullptr, bool formatIndex = false ) ;
+			const char * pszClassDir = nullptr, bool formatIndex = false,
+			bool flagRandValidation = false, double rateValidation = 0.25 ) ;
 
 public:
 	// 最後に取得した入力データに対応する予測データを出力する

@@ -7,7 +7,7 @@
 #include <functional>
 #include <random>
 #include "nn_matrix.h"
-#include "nn_function.h"
+#include "nn_function2.h"
 #include "nn_buffer.h"
 #include "nn_serializer.h"
 #include "nn_loop_stream.h"
@@ -417,7 +417,8 @@ public:
 	// 入力バッファの準備
 	virtual InputBuffer PrepareInput
 		( const BufferArray& bufArray,
-			size_t iThisLayer, NNBuffer& bufInput0, NNLoopStream& stream ) ;
+			size_t iThisLayer, NNBuffer& bufInput0,
+			size_t iFirstInputLayer, NNLoopStream& stream ) ;
 	// 予測処理
 	virtual void Prediction
 		( CPUWorkArray& bufWorks, Buffer& bufThis,
@@ -620,11 +621,15 @@ public:
 
 class	NNIdentityPerceptron : public NNFixedPerceptron
 {
+protected:
+	float	m_scaler ;		// スカラ係数
+
 public:
 	// 構築関数
 	NNIdentityPerceptron( void ) ;
 	NNIdentityPerceptron
-		( size_t nDstCount, size_t nSrcCount, size_t nDepthwise,
+		( size_t nDstCount, size_t nSrcCount,
+			float scaler, size_t nDepthwise,
 			std::shared_ptr<NNSamplingFilter> sampler,
 			std::shared_ptr<NNActivationFunction> activation ) ;
 	NNIdentityPerceptron( const NNIdentityPerceptron& idp ) ;
@@ -640,6 +645,11 @@ public:
 	{
 		return	PERCEPTRON_TYPE ;
 	}
+
+	// シリアライズ
+	virtual void SerializeExtendInfo( NNSerializer& ser ) ;
+	// デシリアライズ
+	virtual bool DeserializeExtendInfo( NNDeserializer & dsr ) ;
 
 } ;
 

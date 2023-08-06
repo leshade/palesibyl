@@ -19,6 +19,8 @@ void NNLossFunction::InitMakeLoss( void )
 	RegisterLoss<NNLossMSE>() ;
 	RegisterLoss<NNLossMAE>() ;
 	RegisterLoss<NNLossBernoulliNLL>() ;
+	RegisterLoss<NNLossMeanForKLDivergence>() ;
+	RegisterLoss<NNLossVarianceForKLDivergence>() ;
 }
 
 // 関数生成

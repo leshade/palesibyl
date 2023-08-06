@@ -48,6 +48,27 @@ public:
 
 
 //////////////////////////////////////////////////////////////////////////////
+// 評価関数 : 平均二乗誤差 (Mean Squared Error)
+//////////////////////////////////////////////////////////////////////////////
+
+class	NNEvaluationMSE	: public NNEvaluationFunction
+{
+public:
+	constexpr static const char	FunctionName[] = "MSE" ;
+	constexpr static const char	DisplayName[] = "MSE" ;
+
+public:
+	// 関数名
+	virtual const char * GetFunctionName( void ) const ;
+	// 関数表示名
+	virtual const char * GetDisplayName( void ) const ;
+	// 評価値計算
+	virtual double Evaluate
+		( const NNBuffer& bufPredicted, const NNBuffer& bufObserved ) const ;
+} ;
+
+
+//////////////////////////////////////////////////////////////////////////////
 // 評価指標 : R^2
 //////////////////////////////////////////////////////////////////////////////
 

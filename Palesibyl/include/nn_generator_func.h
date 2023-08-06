@@ -49,7 +49,7 @@ public:
 	// 関数名
 	virtual const char * GetFunctionName( void ) const = 0 ;
 	// 作業バッファ生成
-	std::shared_ptr<WorkBuf> MakeWorkBuffer
+	virtual std::shared_ptr<WorkBuf> MakeWorkBuffer
 			( const NNBufDim& dimInput, const NNLoopStream& stream ) ;
 	// 生成
 	virtual void Generate
@@ -90,12 +90,15 @@ public:
 	constexpr static const char	FunctionName[] = "rand_gaussian" ;
 	virtual const char * GetFunctionName( void ) const ;
 	// 作業バッファ生成
-	std::shared_ptr<WorkBuf> MakeWorkBuffer
+	virtual std::shared_ptr<WorkBuf> MakeWorkBuffer
 			( const NNBufDim& dimInput, const NNLoopStream& stream ) ;
 	// 生成
 	virtual void Generate
 		( NNBuffer& bufDst, WorkBuf * pWorkBuf,
 			size_t iChannel, size_t nChannels, NNLoopStream& stream ) ;
+	static void cpuGenerateGaussian
+		( NNBuffer& bufDst, RandGenWorkBuf& wgwb,
+				size_t iChannel, size_t nChannels ) ;
 
 } ;
 

@@ -273,6 +273,8 @@ class	NNActivationMaxPool
 	: public NNActivation<NNAFunctionMaxPool, NNFunctionLossMSE> {} ;
 class	NNActivationMultiply
 	: public NNActivation<NNAFunctionMultiply, NNFunctionLossMSE> {} ;
+class	NNActivationExp
+	: public NNActivation<NNAFunctionExp, NNFunctionLossMSE> {} ;
 
 }
 

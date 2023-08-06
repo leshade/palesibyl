@@ -11,6 +11,7 @@
 - [`simple_upsampler/`](./simple_upsampler/) - 簡単なアップサンプラープロジェクト
 - [`simple_classifier/`](./simple_classifier/) - 簡単な分類器サンプルプロジェクト
 - [`simple_gan/`](./simple_gan/) - 簡単な GAN サンプルプロジェクト
+- [`simple_vae/`](./simple_vae/) - 簡単な VAE サンプルプロジェクト
 - [`simple_wave_filter/`](./simple_wave_filter/) - 簡単な RNN 音声フィルタープロジェクト
 - [`sample_resnet/`](./sample_resnet/) - ResNet サンプルプロジェクト
 - [`sample_unet/`](./sample_unet/) - U-Net サンプルプロジェクト
@@ -117,6 +118,7 @@
   - `AppendGatedLayer` - ゲート付きレイヤー
   - `AppendPointwiseAdd` - 加算結合レイヤー
   - `AppendPointwiseMul` - 乗算結合レイヤー
+  - `AppendGaussianLayer` - N(μ,σ) 乱数発生レイヤー
 
 * 活性化関数（識別子と実装クラス）  
   - `activLinear` - NNActivationLinear - 線形 (平均二乗誤差)
@@ -143,7 +145,13 @@
   - `adaOptAdam` - Adam
 
 * ドロップアウト - NNPerceptron::SetDropoutRate 関数
+
 * L2 正則化 - NNPerceptron::SetRidgeParameter 関数
+
+* 評価関数（実装クラス）  
+  - `NNEvaluationMSE` - 平均二乗誤差
+  - `NNEvaluationR2Score` - 決定係数 R2
+  - `NNEvaluationArgmaxAccuracy` - argmax 正解率
 
 
 ## Palesibyl 固有の留意点
@@ -157,7 +165,8 @@
 * 活性化関数と損失関数  
   * 活性化関数の実装クラスには損失関数も実装されており、デフォルトは活性化関数の交差エントロピーが損失関数として実装されています。  
     NNActivationLinearMAE だけは交差エントロピーではない平均絶対誤差が損失関数として実装されています。  
-	これ以外の損失関数を使用する場合には、損失関数を実装した活性化関数クラスを実装する必要があります。
+	これ以外の損失関数を使用する場合には、損失関数を実装した活性化関数クラスを実装するか、SetLossFunction 関数で任意の損失関数を設定する必要があります。  
+	（追加的な損失関数の設定例は [VAE サンプル](./simple_vae/)を参照）
   * 現在の実装では（argmax を除き）CUDA で処理できる活性化関数の最大チャネル数は 3072 です。  
     （CPU 及び、CUDA でも行列サイズには制限はありません）
   * softmax の高速化は CPU のみの実装となっています（CUDA では高速化されずに実行します）

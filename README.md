@@ -130,6 +130,39 @@
   ```
 
 
+
+### [simple_vae](./build/simple_vae/)
+
+* 単純な変分オートエンコーダーです。
+  ![simple_vae](./img/simple_vae.jpg)  
+  潜在変数へのエンコーダーとデコーダーからなるオートエンコーダーから構成されます。  
+  2つの画像からエンコードした潜在変数を補完してデコードした画像を出力することもできます。
+
+  ```cpp
+  // エンコーダー
+  mlp.AppendConvLayer( 16, 1, 3, 3, convPadBorder, bias, activReLU, 2, 2 ) ; // ->8x8
+  mlp.AppendConvLayer( 32, 16, 3, 3, convPadZero, bias, activReLU, 2, 2 ) ;  // ->4x4
+  mlp.AppendConvLayer( 64, 32, 3, 3, convPadZero, bias, activReLU, 2, 2 ) ;  // ->2x2
+  mlp.AppendConvLayer( 128, 64, 2, 2, convNoPad, bias, activReLU, 2, 2 ) ;   // ->1x1
+
+  NNPerceptronPtr	pLayerMean =
+      mlp.AppendLayer( nLatentChannels, 128, bias, activLinear ) ;
+  NNPerceptronPtr	pLayerLnVar =
+      mlp.AppendLayer( nLatentChannels, 128, bias, activLinear ) ;
+  pLayerLnVar->AddConnection( 2, 0, 0, 128 ) ;
+  
+  mlp.AppendGaussianLayer( nLatentChannels, pLayerMean, pLayerLnVar )
+      ->SetIdentity( idEncoderOutLayer ) ;
+
+  // デコーダー
+  mlp.AppendUp2x2Layer( 128, nLatentChannels, bias, activReLU ) ;  // ->2x2
+  mlp.AppendUp2x2Layer( 64, 128, bias, activReLU ) ;               // ->4x4
+  mlp.AppendUp2x2Layer( 32, 64, bias, activReLU ) ;                // ->8x8
+  mlp.AppendUp2x2Layer( 16, 32, bias, activReLU ) ;                // ->16x16
+  mlp.AppendConvLayer( 1, 16, 3, 3, convPadZero, bias, activSigmoid ) ;
+  ```
+
+
 ### [simple_wave_filter](./build/simple_wave_filter/)
 
 * 単純な RNN での音声フィルタです。イコライザを模擬します。  
