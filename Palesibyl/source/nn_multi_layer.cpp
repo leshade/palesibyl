@@ -132,6 +132,11 @@ NNPerceptronPtr NNPerceptronArray::AppendConvLayer
 					( xConv, yConv, (padding != convNoPad),
 							xStride, yStride, xOffset, yOffset ) ;
 		break ;
+	case	convPadWrap:
+		sampler = std::make_shared<NNConvWrapFilter>
+					( xConv, yConv, (padding != convNoPad),
+							xStride, yStride, xOffset, yOffset ) ;
+		break ;
 	case	convNoPad_sparse:
 	case	convPadZero_sparse:
 		sampler = std::make_shared<NNSparseConvFilter>
@@ -173,6 +178,12 @@ NNPerceptronPtr NNPerceptronArray::AppendDepthwiseConv
 	if ( padding == convPadBorder )
 	{
 		sampler = std::make_shared<NNConvClampFilter>
+					( xConv, yConv, true,
+							xStride, yStride, xOffset, yOffset ) ;
+	}
+	else if ( padding == convPadWrap )
+	{
+		sampler = std::make_shared<NNConvWrapFilter>
 					( xConv, yConv, true,
 							xStride, yStride, xOffset, yOffset ) ;
 	}

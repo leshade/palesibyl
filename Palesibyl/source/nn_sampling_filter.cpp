@@ -136,10 +136,12 @@ void NNSamplingFilter::InitMake( void )
 	Register<NNSamplerInjection>( NNBufSampler::SamplerName ) ;
 	Register<NNSamplerClamp>( NNBufClampSampler::SamplerName ) ;
 	Register<NNSamplerEdge>( NNBufEdgeSampler::SamplerName ) ;
+	Register<NNSamplerWrap>( NNBufWrapSampler::SamplerName ) ;
 	Register<NNSamplerUpSampler>( NNBufUpSampler::SamplerName ) ;
 	Register<NNSamplerUp2x2>( NNBufUpSampler2x2::SamplerName ) ;
 	Register<NNConvClampFilter>( NNBufConvClampSampler::SamplerName ) ;
 	Register<NNConvEdgeFilter>( NNBufConvEdgeSampler::SamplerName ) ;
+	Register<NNConvWrapFilter>( NNBufConvWrapSampler::SamplerName ) ;
 	Register<NNSamplerOneHot>( NNBufOneHotSampler::SamplerName ) ;
 	Register<NNSamplerSparse>( NNSamplerSparse::SamplerName ) ;
 	Register<NNSparseConvFilter>( NNSparseConvFilter::SamplerName ) ;

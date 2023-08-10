@@ -294,6 +294,7 @@ public:
 class	NNSamplerInjection	: public NNGenSamplingFilter<NNBufSampler> {} ;
 class	NNSamplerClamp	: public NNGenSamplingFilter<NNBufClampSampler> {} ;
 class	NNSamplerEdge	: public NNGenSamplingFilter<NNBufEdgeSampler> {} ;
+class	NNSamplerWrap	: public NNGenSamplingFilter<NNBufWrapSampler> {} ;
 
 class	NNSamplerUpSampler	: public NNGenSamplingFilter<NNBufUpSampler>
 {
@@ -354,6 +355,21 @@ public:
 			int xStride = 1, int yStride = 1,
 			int xOffset = 0, int yOffset = 0 )
 		: NNGenSamplingFilter<NNBufConvEdgeSampler>
+			( xStride, yStride,
+				xOffset - (padding ? xConv/2 : 0),
+				yOffset - (padding ? yConv/2 : 0),
+				xConv, yConv,
+				(padding ? (xConv - 1) : 0), (padding ? (yConv - 1) : 0) ) { }
+} ;
+
+class	NNConvWrapFilter	: public NNGenSamplingFilter<NNBufConvWrapSampler>
+{
+public:
+	NNConvWrapFilter
+		( int xConv = 1, int yConv = 1, bool padding = false,
+			int xStride = 1, int yStride = 1,
+			int xOffset = 0, int yOffset = 0 )
+		: NNGenSamplingFilter<NNBufConvWrapSampler>
 			( xStride, yStride,
 				xOffset - (padding ? xConv/2 : 0),
 				yOffset - (padding ? yConv/2 : 0),

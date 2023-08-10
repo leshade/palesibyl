@@ -190,6 +190,63 @@ public:
 } ;
 
 
+// サンプリング関数（環）
+//////////////////////////////////////////////////////////////////////////////
+class	NNBufWrapSampler	: public NNBufSampler
+{
+public:
+	constexpr static const char	SamplerName[] = "wrap" ;
+
+	static inline __NN_CUDA_DEV__ float Sample
+		( const float * pSrc, NNBufDim dimSrc,
+			int xSrc, int ySrc, size_t chSrc, const NNSamplingParam& sp )
+	{
+		if ( chSrc >= dimSrc.z )
+		{
+			return	1.0f ;	// バイアス項
+		}
+		xSrc %= dimSrc.x ;
+		ySrc %= dimSrc.y ;
+		if ( xSrc < 0 )
+		{
+			xSrc += (int) dimSrc.x ;
+		}
+		if ( ySrc < 0 )
+		{
+			ySrc += (int) dimSrc.y ;
+		}
+		return	pSrc[((ySrc * dimSrc.x) + xSrc) * dimSrc.z + chSrc] ;
+	}
+	static inline void cudaMatrix
+		( float * pDst, NNBufDim dimDst,
+			const float * pSrc, NNBufDim dimSrc,
+			const float * pMatrix,
+			size_t xMatrix, size_t yMatrix, size_t iMatrixBias, 
+			size_t xLeftBounds, int nDepthwise,
+			const NNSamplingParam& sp, cudaStream_t stream )
+	{
+		nncuda_Matrix_Wrap
+			( pDst, dimDst, pSrc, dimSrc,
+				pMatrix, xMatrix, yMatrix, iMatrixBias,
+				xLeftBounds, nDepthwise, sp, stream ) ;
+	}
+	static inline void cudaCalcMatrixGradient
+		( float * pGradient, NNBufDim dimGradient,
+			size_t xGradientBlockSize, size_t yGradientBlockSize,
+			size_t xMatrix, size_t yMatrix, size_t iMatrixBias,
+			const float * pDelta, NNBufDim dimDelta,
+			const float * pSrc, NNBufDim dimSrc,
+			int nDepthwise, const NNSamplingParam& sp, cudaStream_t stream )
+	{
+		nncuda_CalcMatrixGradient_Wrap
+			( pGradient, dimGradient,
+				xGradientBlockSize, yGradientBlockSize,
+				xMatrix, yMatrix, iMatrixBias,
+				pDelta, dimDelta, pSrc, dimSrc, sp, stream ) ;
+	}
+} ;
+
+
 // 畳み込みサンプリング関数
 //////////////////////////////////////////////////////////////////////////////
 template <class S> class	NNBufConvSampler	: public S
@@ -290,6 +347,40 @@ public:
 			int nDepthwise, const NNSamplingParam& sp, cudaStream_t stream )
 	{
 		nncuda_CalcMatrixGradient_Conv_Edge
+			( pGradient, dimGradient,
+				xGradientBlockSize, yGradientBlockSize,
+				xMatrix, yMatrix, iMatrixBias,
+				pDelta, dimDelta, pSrc, dimSrc, sp, stream ) ;
+	}
+} ;
+
+class	NNBufConvWrapSampler	: public NNBufConvSampler<NNBufWrapSampler>
+{
+public:
+	constexpr static const char	SamplerName[] = "conv_wrap" ;
+
+	static inline void cudaMatrix
+		( float * pDst, NNBufDim dimDst,
+			const float * pSrc, NNBufDim dimSrc,
+			const float * pMatrix,
+			size_t xMatrix, size_t yMatrix, size_t iMatrixBias,
+			size_t xLeftBounds, int nDepthwise,
+			const NNSamplingParam& sp, cudaStream_t stream )
+	{
+		nncuda_Matrix_Conv_Wrap
+			( pDst, dimDst, pSrc, dimSrc,
+				pMatrix, xMatrix, yMatrix, iMatrixBias,
+				xLeftBounds, nDepthwise, sp, stream ) ;
+	}
+	static inline void cudaCalcMatrixGradient
+		( float * pGradient, NNBufDim dimGradient,
+			size_t xGradientBlockSize, size_t yGradientBlockSize,
+			size_t xMatrix, size_t yMatrix, size_t iMatrixBias,
+			const float * pDelta, NNBufDim dimDelta,
+			const float * pSrc, NNBufDim dimSrc,
+			int nDepthwise, const NNSamplingParam& sp, cudaStream_t stream )
+	{
+		nncuda_CalcMatrixGradient_Conv_Wrap
 			( pGradient, dimGradient,
 				xGradientBlockSize, yGradientBlockSize,
 				xMatrix, yMatrix, iMatrixBias,

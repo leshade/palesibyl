@@ -17,6 +17,7 @@ enum	ConvolutionPadding
 	convNoPad,
 	convPadZero,
 	convPadBorder,
+	convPadWrap,
 	convNoPad_sparse,
 	convPadZero_sparse,
 } ;
