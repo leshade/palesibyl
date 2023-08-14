@@ -63,6 +63,9 @@ void CudaStream::VerifySync( void ) const
 {
 	assert( m_stream != nullptr ) ;
 #if	!defined(NDEBUG) && defined(_DEBUG)
+	// ※Synchronize すると直前までの CUDA カーネルでのエラーが補足できる。
+	//   カーネル実行の度に Synchronize するとパフォーマンスは著しく低下するが
+	//   デバッグの際にはどのカーネル実行でエラーがあったのか分かりやすい。
 	cudaVerify( cudaStreamSynchronize( m_stream ) ) ;
 #endif
 }
