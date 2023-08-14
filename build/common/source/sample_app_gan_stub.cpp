@@ -123,6 +123,7 @@ int PalesibylApp::RunHelp( void )
 	std::cout << "/lgrd             : 学習ログにレイヤー毎の勾配ノルムを出力します\r" << std::endl ;
 	std::cout << "/tio <image-file> : 訓練画像の予測をミニバッチ毎に出力します\r" << std::endl ;
 	std::cout << "/vio <image-file> : 検証用画像の予測を逐次出力します\r" << std::endl ;
+	std::cout << "/asm <model-file> : 学習時に1時間毎にモデルを自動保存します\r" << std::endl ;
 	std::cout << "/ndo              : ドロップアウトは行わない\r" << std::endl ;
 	std::cout << "/nlfb             : ミニバッチ毎に進捗表示を改行しない\r" << std::endl ;
 	std::cout << "/pbs              : 学習中間バッファのサイズを表示します\r" << std::endl ;
