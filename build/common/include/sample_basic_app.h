@@ -20,9 +20,13 @@ public:
 		std::string				m_strLogFile ;
 		bool					m_logOutput ;
 		bool					m_logGradient ;
+		bool					m_flagAutoSave ;
+		std::string				m_strAutoSave ;
+		NNMLPShell::TimeMeasure	m_timeAutoSave ;
 
 	public:
-		AppShell( void ) : m_logOutput(false), m_logGradient(false) {}
+		AppShell( void )
+			: m_logOutput(false), m_logGradient(false), m_flagAutoSave(false) {}
 		// 訓練データ出力を画像ファイルとして出力する
 		void SetTrainingImageFile( const char * pszFilePath ) ;
 		// 検証データ出力を画像ファイルとして出力する
@@ -33,6 +37,8 @@ public:
 		void SetLogGradient( bool log ) ;
 		// ログファイルを開く
 		std::unique_ptr<std::ofstream> OpenLogFile( bool flagCreate ) const ;
+		// 自動保存ファイル名を設定し、自動保存を有効にする
+		void SetAutoSaveFile( const char * pszFilePath ) ;
 		// 学習進捗
 		virtual void OnLearningProgress
 			( LearningEvent le, const LearningProgressInfo& lpi ) ;

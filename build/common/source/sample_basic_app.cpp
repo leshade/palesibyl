@@ -76,6 +76,15 @@ std::unique_ptr<std::ofstream>
 	return	nullptr ;
 }
 
+// 自動保存ファイル名を設定し、自動保存を有効にする
+//////////////////////////////////////////////////////////////////////////////
+void PalesibylBasicApp::AppShell::SetAutoSaveFile( const char * pszFilePath )
+{
+	m_flagAutoSave = true ;
+	m_strAutoSave = pszFilePath ;
+	m_timeAutoSave.Start() ;
+}
+
 // 学習進捗
 //////////////////////////////////////////////////////////////////////////////
 void PalesibylBasicApp::AppShell::OnLearningProgress
@@ -114,6 +123,14 @@ void PalesibylBasicApp::AppShell::OnLearningProgress
 				}
 			}
 			*ofs << std::endl ;
+		}
+	}
+	if ( (le == learningEndEpoch) && m_flagAutoSave )
+	{
+		if ( m_timeAutoSave.MeasureMilliSec() > 60 * 60 * 1000 )
+		{
+			SaveModel( m_strAutoSave.c_str() ) ;
+			m_timeAutoSave.Start() ;
 		}
 	}
 }
@@ -173,6 +190,7 @@ bool PalesibylBasicApp::ParseArgumentAt( int& iArg, int nArgs, char * pszArgs[] 
 		paramLogGradient,
 		paramTrainImageOut,
 		paramValidImageOut,
+		paramAutoSaveModel,
 		paramLineFeedByMiniBatch,
 		paramPrintBufferSize,
 		paramPrintCudaBufferSize,
@@ -199,6 +217,7 @@ bool PalesibylBasicApp::ParseArgumentAt( int& iArg, int nArgs, char * pszArgs[] 
 		{ "/lgrd", paramLogGradient },
 		{ "/tio", paramTrainImageOut },
 		{ "/vio", paramValidImageOut },
+		{ "/asm", paramAutoSaveModel },
 		{ "/nlfb", paramLineFeedByMiniBatch },
 		{ "/pbs", paramPrintBufferSize },
 		{ "/cubs", paramPrintCudaBufferSize },
@@ -321,6 +340,14 @@ bool PalesibylBasicApp::ParseArgumentAt( int& iArg, int nArgs, char * pszArgs[] 
 		if ( flagSuccess )
 		{
 			m_shell.SetValidationImageFile( pszArgs[++ iArg] ) ;
+		}
+		break ;
+
+	case	paramAutoSaveModel:
+		flagSuccess = IsValidNextArgument( iArg, nArgs, pszArgs ) ;
+		if ( flagSuccess )
+		{
+			m_shell.SetAutoSaveFile( pszArgs[++ iArg] ) ;
 		}
 		break ;
 
@@ -447,6 +474,7 @@ int PalesibylBasicApp::RunHelp( void )
 	std::cout << "/lgrd             : 学習ログにレイヤー毎の勾配ノルムを出力します\r" << std::endl ;
 	std::cout << "/tio <image-file> : 訓練画像の予測をミニバッチ毎に出力します\r" << std::endl ;
 	std::cout << "/vio <image-file> : 検証用画像の予測を逐次出力します\r" << std::endl ;
+	std::cout << "/asm <model-file> : 学習時に1時間毎にモデルを自動保存します\r" << std::endl ;
 	std::cout << "/ndo              : ドロップアウトは行わない\r" << std::endl ;
 	std::cout << "/nlfb             : ミニバッチ毎に進捗表示を改行しない\r" << std::endl ;
 	std::cout << "/pbs              : 学習中間バッファのサイズを表示します\r" << std::endl ;
