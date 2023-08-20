@@ -533,6 +533,40 @@ NNPerceptronPtr NNPerceptronArray::AppendGaussianLayer
 		( nDstChannels, pRandam, 0, pLayerMean, 0, 0, 0, pszActivation ) ;
 }
 
+NNPerceptronPtr NNPerceptronArray::AppendGaussianLayer
+	( size_t nDstChannels,
+		NNPerceptronPtr pLayerMeanLnVar,	// μ, log(σ^2)
+		const char * pszActivation )
+{
+	// exp(log(σ^2)/2) = σ へ変換
+	NNPerceptronPtr	pStdDev =
+		std::make_shared<NNIdentityPerceptron>
+			( nDstChannels, nDstChannels, 0.5f, 1,
+				std::make_shared<NNSamplerInjection>(),
+				std::make_shared<NNActivationExp>() ) ;
+	AppendLayer( pStdDev ) ;
+	pStdDev->AddConnection
+		( LayerOffsetOf(pLayerMeanLnVar), 0, nDstChannels, nDstChannels ) ;
+
+	// ｚ～N(0,1) 乱数生成
+	NNPerceptronPtr	pGaussian =
+		std::make_shared<NNIdentityPerceptron>
+			( nDstChannels, nDstChannels, 1.0f, 1,
+				std::make_shared<NNSamplerInjection>(),
+				std::make_shared<NNActivationLinear>() ) ;
+	pGaussian->AddConnection( NNPerceptron::conLayerNull, 0, 0, nDstChannels ) ;
+	pGaussian->SetGenerator( std::make_shared<NNGaussianGenerator>() ) ;
+	AppendLayer( pGaussian ) ;
+
+	// z * σ
+	NNPerceptronPtr	pRandam =
+		AppendPointwiseMul( nDstChannels, pStdDev, 0, pGaussian, 0 ) ;
+
+	// z * σ + μ
+	return	AppendPointwiseAdd
+		( nDstChannels, pRandam, 0, pLayerMeanLnVar, 0, 0, 0, pszActivation ) ;
+}
+
 // レイヤー数取得
 //////////////////////////////////////////////////////////////////////////////
 size_t NNPerceptronArray::GetLayerCount( void ) const
@@ -1033,7 +1067,8 @@ void NNPerceptronArray::PrepareOutputDelay
 bool NNPerceptronArray::VerifyDataShape
 	( NNPerceptronArray::VerifyResult& verfResult,
 		const NNPerceptronArray::BufferArray& bufArray,
-		const NNBufDim& dimTeaching, const NNBufDim& dimSource0, bool flagCuda ) const
+		const NNBufDim& dimTeaching,
+		const NNBufDim& dimSource0, bool flagCuda ) const
 {
 	verfResult.verfError = verifyNormal ;
 	verfResult.iLayer = 0 ;
@@ -1121,13 +1156,25 @@ bool NNPerceptronArray::VerifyDataShape
 				verfResult.iLayer = iLayer ;
 				return	false ;
 			}
-			if ( (dimTeaching.z != 0)
-				&& !pActivation->IsValidTeachingChannels
-						( dimInAct.z, pLayer->GetDepthwise(), dimTeaching.z ) )
+			if ( dimTeaching.z != 0 )
 			{
-				verfResult.verfError = mismatchTeachingChannel ;
-				verfResult.iLayer = iLayer ;
-				return	false ;
+				if ( m_loss != nullptr )
+				{
+					if ( !m_loss->IsValidTeachingChannels
+						( dimInAct.z, pLayer->GetDepthwise(), dimTeaching.z ) )
+					{
+						verfResult.verfError = mismatchTeachingChannel ;
+						verfResult.iLayer = iLayer ;
+						return	false ;
+					}
+				}
+				else if ( !pActivation->IsValidTeachingChannels
+						( dimInAct.z, pLayer->GetDepthwise(), dimTeaching.z ) )
+				{
+					verfResult.verfError = mismatchTeachingChannel ;
+					verfResult.iLayer = iLayer ;
+					return	false ;
+				}
 			}
 		}
 		else
@@ -1672,6 +1719,50 @@ void NNMultiLayerPerceptron::AddLossGaussianKLDivergence
 	AddSubpass( lossForLnVar ) ;
 }
 
+void NNMultiLayerPerceptron::AddLossGaussianKLDivergence
+	( NNPerceptronPtr pLayerMeanLnVar, float lossFactor, float deltaFactor )
+{
+	const size_t	nChannels = pLayerMeanLnVar->GetMatrix().GetLineCount() / 2 ;
+
+	// μ に関する Gaussian KL Divergence
+	std::shared_ptr<Pass>	lossForMean = std::make_shared<Pass>() ;
+	lossForMean->m_dsc.iSourceLayer = layerMLPFirst + FindLayer( pLayerMeanLnVar ) ;
+	lossForMean->m_dsc.iTeachingLayer = lossForMean->m_dsc.iSourceLayer ;
+	assert( lossForMean->m_dsc.iSourceLayer != layerMLPFirst - 1 ) ;
+	//
+	NNFunctionLossMeanForKLDivergence::LossParam
+								lpMean( lossFactor, deltaFactor ) ;
+	std::shared_ptr<NNIdentityPerceptron>
+		pMeanLayer =std::make_shared<NNIdentityPerceptron>
+			( nChannels, nChannels, 1.0f, 1,
+				std::make_shared<NNSamplerInjection>(),
+				std::make_shared<NNActivationLinear>() ) ;
+	pMeanLayer->AddConnection( 1, 0, 0, nChannels ) ;
+	lossForMean->AppendLayer( pMeanLayer ) ;
+	lossForMean->SetLossFunction
+		( std::make_shared<NNLossMeanForKLDivergence>(lpMean) ) ;
+	AddSubpass( lossForMean ) ;
+
+	// log(σ^2) に関する Gaussian KL Divergence
+	std::shared_ptr<Pass>	lossForLnVar= std::make_shared<Pass>() ;
+	lossForLnVar->m_dsc.iSourceLayer = layerMLPFirst + FindLayer( pLayerMeanLnVar ) ;
+	lossForLnVar->m_dsc.iTeachingLayer = lossForLnVar->m_dsc.iSourceLayer ;
+	assert( lossForLnVar->m_dsc.iSourceLayer != layerMLPFirst - 1 ) ;
+	//
+	NNFunctionLossVarianceForKLDivergence::LossParam
+								lpLnVar( lossFactor, deltaFactor ) ;
+	std::shared_ptr<NNIdentityPerceptron>
+		pVarLayer = std::make_shared<NNIdentityPerceptron>
+			( nChannels, nChannels, 1.0f, 1,
+				std::make_shared<NNSamplerInjection>(),
+				std::make_shared<NNActivationExp>() ) ;
+	pVarLayer->AddConnection( 1, 0, nChannels, nChannels ) ;
+	lossForLnVar->AppendLayer( pVarLayer ) ;
+	lossForLnVar->SetLossFunction
+		( std::make_shared<NNLossVarianceForKLDivergence>(lpLnVar) ) ;
+	AddSubpass( lossForLnVar ) ;
+}
+
 // シリアライズ
 //////////////////////////////////////////////////////////////////////////////
 void NNMultiLayerPerceptron::Serialize( NNSerializer& ser )
@@ -2064,7 +2155,8 @@ bool NNMultiLayerPerceptron::VerifyDataShape
 	*/
 
 	if ( !NNPerceptronArray::VerifyDataShape
-		( verfResult, bufArrays, dimTeaching, dimSource0, bufArrays.stream.m_useCuda ) )
+		( verfResult, bufArrays, dimTeaching, dimSource0,
+			bufArrays.stream.m_useCuda ) )
 	{
 		return	false ;
 	}

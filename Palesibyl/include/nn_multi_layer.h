@@ -279,6 +279,10 @@ public:
 			NNPerceptronPtr pLayerMean,		// μ
 			NNPerceptronPtr pLayerLnVar,	// log(σ^2)
 			const char * pszActivation = activLinear ) ;
+	NNPerceptronPtr AppendGaussianLayer
+		( size_t nDstChannels,
+			NNPerceptronPtr pLayerMeanLnVar,	// μ, log(σ^2)
+			const char * pszActivation = activLinear ) ;
 
 	// レイヤー数取得
 	size_t GetLayerCount( void ) const ;
@@ -579,6 +583,9 @@ public:
 	void AddLossGaussianKLDivergence
 		( NNPerceptronPtr pLayerMean,
 			NNPerceptronPtr pLayerLnVar,
+			float lossFactor = 1.0f, float deltaFactor = 1.0f ) ;
+	void AddLossGaussianKLDivergence
+		( NNPerceptronPtr pLayerMeanLnVar,
 			float lossFactor = 1.0f, float deltaFactor = 1.0f ) ;
 
 public:
