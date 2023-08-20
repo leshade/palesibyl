@@ -61,7 +61,7 @@ public:
 	constexpr static const char	FunctionName[] = "loss_mse" ;
 	typedef	NNLossParam	LossParam ;
 
-	static inline size_t IsValidTeachingChannels
+	static inline bool IsValidTeachingChannels
 		( size_t nSrcActChannels, size_t nDepthwise, size_t nTeachingChannels )
 	{
 		return	(nSrcActChannels == nTeachingChannels) ;
@@ -121,7 +121,7 @@ public:
 	constexpr static const char	FunctionName[] = "loss_mae" ;
 	typedef	NNLossParam	LossParam ;
 
-	static inline size_t IsValidTeachingChannels
+	static inline bool IsValidTeachingChannels
 		( size_t nSrcActChannels, size_t nDepthwise, size_t nTeachingChannels )
 	{
 		return	(nSrcActChannels == nTeachingChannels) ;
@@ -235,7 +235,7 @@ class	NNFunctionLossArgmax	: public NNFunctionLossSoftmax
 public:
 	constexpr static const char	FunctionName[] = "loss_argmax" ;
 
-	static inline size_t IsValidTeachingChannels
+	static inline bool IsValidTeachingChannels
 		( size_t nSrcActChannels, size_t nDepthwise, size_t nTeachingChannels )
 	{
 		return	(nDepthwise == nTeachingChannels) ;

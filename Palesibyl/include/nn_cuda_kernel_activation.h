@@ -353,17 +353,18 @@ template <class L, typename P> void nncuda_LossDelta
 		const float * pTeaching, NNBufDim dimTeaching,
 		int nDepthwise, const P& lp, cudaStream_t stream )
 {
-	if ( dimLossDelta.z <= cudaSharedMemorySize/4/sizeof(float) )
+	const size_t	zChannles = __max( dimLossDelta.z, dimTeaching.z ) ;
+	if ( zChannles <= cudaSharedMemorySize/4/sizeof(float) )
 	{
 		unsigned int	nBatchSamples =
 			CalcBatchSamples
-				( (cudaSharedMemorySize/4/sizeof(float)) / dimLossDelta.z, dimLossDelta.x ) ;
+				( (cudaSharedMemorySize/4/sizeof(float)) / zChannles, dimLossDelta.x ) ;
 
 		unsigned int	xThreads = (unsigned int) cudaMaxThreadCount / nBatchSamples ;
 		unsigned int	yThreads = nBatchSamples ;
-		if ( xThreads >= dimLossDelta.z )
+		if ( xThreads >= zChannles )
 		{
-			xThreads = (unsigned int) dimLossDelta.z ;
+			xThreads = (unsigned int) zChannles ;
 		}
 
 		dim3	threads( xThreads, yThreads ) ;

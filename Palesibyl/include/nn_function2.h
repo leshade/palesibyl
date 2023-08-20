@@ -15,7 +15,7 @@ public:
 	constexpr static const char	FunctionName[] = "loss_bernoulli_nll" ;
 	typedef	NNLossParam	LossParam ;
 
-	static inline size_t IsValidTeachingChannels
+	static inline bool IsValidTeachingChannels
 		( size_t nSrcActChannels, size_t nDepthwise, size_t nTeachingChannels )
 	{
 		return	(nSrcActChannels == nTeachingChannels) ;
@@ -84,7 +84,7 @@ public:
 	constexpr static const char	FunctionName[] = "loss_mean_kl_divergence" ;
 	typedef	NNLossParam2	LossParam ;
 
-	static inline size_t IsValidTeachingChannels
+	static inline bool IsValidTeachingChannels
 		( size_t nSrcActChannels, size_t nDepthwise, size_t nTeachingChannels )
 	{
 		return	true ;
@@ -144,7 +144,7 @@ public:
 	constexpr static const char	FunctionName[] = "loss_variance_kl_divergence" ;
 	typedef	NNLossParam2	LossParam ;
 
-	static inline size_t IsValidTeachingChannels
+	static inline bool IsValidTeachingChannels
 		( size_t nSrcActChannels, size_t nDepthwise, size_t nTeachingChannels )
 	{
 		return	true ;

@@ -40,6 +40,9 @@ public:
 public:
 	// 関数名
 	virtual const char * GetFunctionName( void) const = 0 ;
+	// 教師データチャネル数と適合するか？
+	virtual bool IsValidTeachingChannels
+		( size_t chInput, size_t nDepthwise, size_t chTeaching ) const = 0 ;
 	// δ計算
 	virtual void cpuLossDelta
 		( float * pLossDelta,
@@ -77,6 +80,12 @@ public:
 	virtual const char * GetFunctionName( void) const
 	{
 		return	L::FunctionName ;
+	}
+	// 教師データチャネル数と適合するか？
+	virtual bool IsValidTeachingChannels
+		( size_t chInput, size_t nDepthwise, size_t chTeaching ) const
+	{
+		return	L::IsValidTeachingChannels( chInput, nDepthwise, chTeaching ) ;
 	}
 	// δ計算
 	virtual void cpuLossDelta

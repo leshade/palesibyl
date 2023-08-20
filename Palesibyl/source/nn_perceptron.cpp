@@ -1603,7 +1603,6 @@ double NNPerceptron::cpuCalcLoss
 	// ※最終レイヤーの活性化関数はチャネル数を変換しないこと
 	assert( dimOutput.x <= dimTeaching.x ) ;
 	assert( dimOutput.y <= dimTeaching.y ) ;
-	assert( m_activation->IsValidTeachingChannels(dimInAct.z,GetActivationDepthwise(),dimTeaching.z) ) ;
 	assert( dimOutput.x == dimInAct.x ) ;
 	assert( dimOutput.y == dimInAct.y ) ;
 	assert( dimOutput.z == m_activation->CalcOutputChannels(dimInAct.z,GetActivationDepthwise()) ) ;
@@ -1612,6 +1611,7 @@ double NNPerceptron::cpuCalcLoss
 	{
 		pLossFunc = m_activation.get() ;
 	}
+	assert( pLossFunc->IsValidTeachingChannels(dimInAct.z,GetActivationDepthwise(),dimTeaching.z) ) ;
 
 	bufThis.bufInAct.Commit() ;
 
@@ -1702,7 +1702,7 @@ void NNPerceptron::cpuShiftBufferWithStreaming
 		bufThis.bufDelay.Commit() ;
 		bufThis.bufDelay.CopyFrom( bufThis.bufOutput, NNBufDim( xShift, 0, 0 ) ) ;
 	}
-	else
+	else if ( bufThis.bufOutput.IsCommitted() )
 	{
 		bufThis.bufOutput.ShiftCopyChannelFrom
 				( 0, bufThis.bufOutput, - (int) xShift, 0 ) ;
@@ -1721,7 +1721,7 @@ void NNPerceptron::cudaShiftBufferWithStreaming
 			( 0, 0, 0, bufThis.bufOutput, - (int) xShift, 0,
 				0, dimOutput.z, dimOutput.x, dimOutput.y, stream.m_cudaStream ) ;
 	}
-	else
+	else if ( bufThis.bufOutput.IsCommitted() )
 	{
 		assert( bufThis.bufOutput.IsCommittedCuda() ) ;
 		const NNBufDim	dimOutput = bufThis.bufOutput.GetSize() ;
@@ -1730,6 +1730,12 @@ void NNPerceptron::cudaShiftBufferWithStreaming
 			( 0, 0, 0, bufThis.bufOutput, - (int) xShift, 0,
 				0, dimOutput.z, dimOutput.x, dimOutput.y, stream.m_cudaStream ) ;
 		bufThis.bufOutput.SwapBuffer( bufThis.bufDelay ) ;
+		//
+		if ( bufThis.linearActivation )
+		{
+			assert( bufThis.bufDelay.IsEqualBuffer( bufThis.bufInAct ) ) ;
+			bufThis.bufInAct.DuplicateBuffer( bufThis.bufOutput ) ;
+		}
 	}
 }
 
@@ -1888,7 +1894,6 @@ double NNPerceptron::cpuLossDelta
 	// （pLossFunc==nullptr の時、bufPrevDelta ではなく bufInDelta へ直接出力する）
 	assert( dimOutput.x <= dimTeaching.x ) ;
 	assert( dimOutput.y <= dimTeaching.y ) ;
-	assert( m_activation->IsValidTeachingChannels(dimInAct.z,GetActivationDepthwise(),dimTeaching.z) ) ;
 	assert( dimOutput.x == dimInAct.x ) ;
 	assert( dimOutput.y == dimInAct.y ) ;
 	assert( dimOutput.z == m_activation->CalcOutputChannels(dimInAct.z,GetActivationDepthwise()) ) ;
@@ -1905,6 +1910,8 @@ double NNPerceptron::cpuLossDelta
 		flagActDelta = true ;
 		bufThis.bufPrevDelta.Commit() ;
 	}
+	assert( pLossFunc->IsValidTeachingChannels(dimInAct.z,GetActivationDepthwise(),dimTeaching.z) ) ;
+
 	bufThis.bufInDelta.Commit() ;
 
 	stream.m_ploop.Loop( 0, dimOutput.y, [&]( size_t iThread, size_t y )
@@ -1970,7 +1977,6 @@ double NNPerceptron::cudaLossDelta
 	// （pLossFunc==nullptr の時、bufPrevDelta ではなく bufInDelta へ直接出力する）
 	assert( dimOutput.x <= dimTeaching.x ) ;
 	assert( dimOutput.y <= dimTeaching.y ) ;
-	assert( m_activation->IsValidTeachingChannels(dimInAct.z,GetActivationDepthwise(),dimTeaching.z) ) ;
 	assert( dimOutput.x == dimInDelta.x ) ;
 	assert( dimOutput.y == dimInDelta.y ) ;
 	assert( dimOutput.z == m_activation->CalcOutputChannels(dimInDelta.z,GetActivationDepthwise()) ) ;
@@ -1986,6 +1992,7 @@ double NNPerceptron::cudaLossDelta
 		flagActDelta = true ;
 		bufThis.bufPrevDelta.Commit() ;
 	}
+	assert( pLossFunc->IsValidTeachingChannels(dimInAct.z,GetActivationDepthwise(),dimTeaching.z) ) ;
 
 	bufThis.bufInDelta.CommitCuda() ;
 	bufTeaching.CommitCuda() ;
@@ -2010,7 +2017,7 @@ double NNPerceptron::cudaLossDelta
 			( bufThis.normWorkBuf, bufThis.bufInDelta, bufThis.bufInAct, stream ) ;
 	}
 
-	return	cpuCalcLoss( bufWorks, bufThis, bufTeaching, stream ) ;
+	return	cpuCalcLoss( bufWorks, bufThis, bufTeaching, stream, pLossFunc ) ;
 }
 
 // 活性化関数のδ逆伝播処理
@@ -2518,19 +2525,33 @@ void NNPerceptron::LayerDeltaBackTo
 		const NNPerceptron::Buffer& bufThis, NNLoopStream& stream )
 {
 	NNBufDim	dimRef = bufThis.bufOutDelta.GetSize() ;
-	assert( dimRef == bufDst.bufPrevDelta.GetSize() ) ;
+	assert( (m_connection.size() == 0) || (m_connection.size() == 1) ) ;
+	size_t	iDstChannel = 0 ;
+	if ( m_connection.size() == 1 )
+	{
+		iDstChannel = m_connection.at(0).iChannel ;
+		if ( m_connection.at(0).nChannels != 0 )
+		{
+			assert( m_connection.at(0).nChannels <= dimRef.z ) ;
+			dimRef.z = m_connection.at(0).nChannels ;
+		}
+	}
+	const NNBufDim	dimDst = bufDst.bufPrevDelta.GetSize() ;
+	assert( (dimRef.x == dimDst.x)
+			&& (dimRef.y == dimDst.y)
+			&& (dimRef.z + iDstChannel <= dimDst.z) ) ;
 	if ( stream.m_useCuda )
 	{
 		bufDst.bufPrevDelta.CommitCuda() ;
 		bufDst.bufPrevDelta.CudaAddChannelFrom
-			( 0, 0, 0, bufThis.bufOutDelta, 0, 0, 0, dimRef.z,
+			( 0, 0, iDstChannel, bufThis.bufOutDelta, 0, 0, 0, dimRef.z,
 				dimRef.x, dimRef.y, m_deltaFactor, stream.m_cudaStream ) ;
 	}
 	else
 	{
 		bufDst.bufPrevDelta.Commit() ;
 		bufDst.bufPrevDelta.AddChannelValue
-			( 0, 0, 0, bufThis.bufOutDelta, 0, 0, dimRef.z,
+			( 0, 0, iDstChannel, bufThis.bufOutDelta, 0, 0, dimRef.z,
 				dimRef.x, dimRef.y, m_deltaFactor ) ;
 	}
 }
