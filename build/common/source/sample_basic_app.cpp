@@ -44,7 +44,15 @@ bool PalesibylBasicApp::AppShell::MakeOutputCSV( const char * pszFilePath )
 		*ofs << "," ;
 		for ( size_t i = 0; i < MLP().GetLayerCount(); i ++ )
 		{
-			*ofs << ",g" << i ;
+			NNPerceptronPtr	pLayer = MLP().GetLayerAt(i) ;
+			if ( pLayer->GetIdentity().empty() )
+			{
+				*ofs << ",g" << i ;
+			}
+			else
+			{
+				*ofs << ",\"" << pLayer->GetIdentity() << "\"" ;
+			}
 		}
 	}
 	*ofs << std::endl ;
