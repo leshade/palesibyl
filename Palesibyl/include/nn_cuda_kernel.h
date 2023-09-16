@@ -15,6 +15,12 @@ namespace	Palesibyl
 void nncuda_FillMemory
 	( float * pDst, NNBufDim dimDst, float fill, cudaStream_t stream ) ;
 
+// 矩形の外側を値で埋める
+void nncuda_FillExterior
+	( float * pDst, NNBufDim dimDst,
+		size_t xLeft, size_t yTop,
+		size_t xRight, size_t yBottom, float fill, cudaStream_t stream ) ;
+
 // サンプルごとに pMask[dimDst.z] で乗算する
 void nncuda_MaskPattern
 	( float * pDst, NNBufDim dimDst, const float * pMask, cudaStream_t stream ) ;
@@ -292,6 +298,26 @@ void nncuda_Activation_Exp
 
 
 size_t nncuda_IsAcceptableActivationChannels( size_t zDstChannels, size_t zSrcChannels ) ;
+
+
+// 単純計算パーセプトロン用
+//////////////////////////////////////////////////////////////////////////////
+
+void nncuda_Primitive_Add
+	( float * pDst, NNBufDim dimDst,
+		const float * pSrc0, NNBufDim dimSrc0,
+		size_t iChannel0, int xShift0, int yShift0,
+		const float * pSrc1, NNBufDim dimSrc1,
+		size_t iChannel1, int xShift1, int yShift1,
+		size_t xLeftBounds, cudaStream_t stream ) ;
+
+void nncuda_Primitive_Multiply
+	( float * pDst, NNBufDim dimDst,
+		const float * pSrc0, NNBufDim dimSrc0,
+		size_t iChannel0, int xShift0, int yShift0,
+		const float * pSrc1, NNBufDim dimSrc1,
+		size_t iChannel1, int xShift1, int yShift1,
+		size_t xLeftBounds, cudaStream_t stream ) ;
 
 
 

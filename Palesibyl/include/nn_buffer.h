@@ -122,6 +122,11 @@ public:
 	void InvalidateCuda( void ) ;
 	// フィル
 	void CudaFill( float fill, cudaStream_t stream ) ;
+	// 矩形外側フィル
+	void CudaFillExterior
+		( size_t xLeft, size_t yTop,
+			size_t xRight, size_t yBottom,
+			float fill, cudaStream_t stream ) ;
 	// CUDA デバイスへ転送
 	void CudaAsyncToDevice( cudaStream_t stream ) ;
 	// データを CUDA デバイスへ転送

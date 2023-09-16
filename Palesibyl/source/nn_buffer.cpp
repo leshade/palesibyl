@@ -653,6 +653,24 @@ void NNBuffer::CudaFill( float fill, cudaStream_t stream )
 	nncuda_FillMemory( m_cudaMemory->GetDevicePtr(), m_dimSize, fill, stream ) ;
 }
 
+// 矩形外側フィル
+//////////////////////////////////////////////////////////////////////////////
+void NNBuffer::CudaFillExterior
+	( size_t xLeft, size_t yTop,
+		size_t xRight, size_t yBottom,
+		float fill, cudaStream_t stream )
+{
+	assert( m_commitCuda ) ;
+	assert( m_cudaMemory != nullptr ) ;
+	if ( (xLeft > 0) || (yTop > 0)
+		|| (xRight < m_dimSize.x) || (yBottom < m_dimSize.y) )
+	{
+		nncuda_FillExterior
+			( m_cudaMemory->GetDevicePtr(), m_dimSize,
+				xLeft, yTop, xRight, yBottom, fill, stream ) ;
+	}
+}
+
 // CUDA デバイスへ転送
 //////////////////////////////////////////////////////////////////////////////
 void NNBuffer::CudaAsyncToDevice( cudaStream_t stream )

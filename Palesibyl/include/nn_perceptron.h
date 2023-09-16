@@ -109,10 +109,22 @@ public:
 		unsigned long long GetTotalCudaBufferBytes( void ) const ;
 	} ;
 
+	// 複数入力バッファ最大数
+	constexpr static const size_t	MaxMultiInput	= 3 ;
+
 	// 入力バッファ情報
 	struct	InputBuffer
 	{
-		NNBuffer *	pInput ;
+		NNBuffer *		pInput ;
+		size_t			nMultiInput ;
+		struct
+		{
+			NNBuffer *	pBuffer ;
+			size_t		iChannel ;
+			size_t		nChannels ;
+			int			xShift ;
+			int			yShift ;
+		}				multi[MaxMultiInput] ;
 	} ;
 
 	// 損失値と行列勾配の合計
@@ -204,6 +216,7 @@ public:
 		behaviorCutOffConMask	= 0x000F0000,
 		behaviorNoDropout		= 0x00000004,	// ドロップアウトしない
 		behaviorDisabled		= 0x00000008,	// 予測無効化（ゼロ出力）
+		behaviorInvalidMargin	= 0x00000010,	// 学習無効マージン指定
 	} ;
 
 	// 勾配更新最適化
@@ -226,6 +239,11 @@ public:
 
 public:
 	uint32_t								m_behavior ;	// 動作フラグ（enum BehaviorFlag）（※揮発性）
+	size_t									m_xInvalidLeft ;// 学習有効範囲 (behaviorInvalidMargin フラグ指定時）
+	size_t									m_yInvalidTop ;	// ※畳み込みで端の不完全な部分を除外した領域のみの
+	size_t									m_xInvalidRight ;// 　損失δを伝播させたい場合、その幅を指定
+	size_t									m_yInvalidBottom ;
+
 	std::string								m_id ;			// 識別子
 	NNMatrix								m_matrix ;		// 行列
 	size_t									m_bias ;		// バイアス項
@@ -313,6 +331,8 @@ public:
 	virtual bool IsMatrixFixed( void ) const ;
 	virtual bool IsDeltaCutOff( void ) const ;
 	virtual bool IsNoDropout( void ) const ;
+	void SetLossDeltaInvalidMargin
+		( size_t xLeft, size_t yTop, size_t xRight, size_t yBottom ) ;
 	// 正規化
 	NNPerceptron * SetNormalization( std::shared_ptr<NNNormalizationFilter> pNorm ) ;
 	std::shared_ptr<NNNormalizationFilter> GetNormalization( void ) const ;
@@ -650,6 +670,120 @@ public:
 	virtual void SerializeExtendInfo( NNSerializer& ser ) ;
 	// デシリアライズ
 	virtual bool DeserializeExtendInfo( NNDeserializer & dsr ) ;
+
+} ;
+
+
+
+//////////////////////////////////////////////////////////////////////////////
+// 単純計算パーセプトロン（ｎ入力１出力計算）
+//////////////////////////////////////////////////////////////////////////////
+
+class	NNPrimitivePerceptron	: public NNIdentityPerceptron
+{
+public:
+	// 構築関数
+	NNPrimitivePerceptron( void ) {}
+	NNPrimitivePerceptron
+		( size_t nDstCount, size_t nSrcCount, size_t nDepthwise,
+			std::shared_ptr<NNSamplingFilter> sampler,
+			std::shared_ptr<NNActivationFunction> activation )
+		: NNIdentityPerceptron
+			( nDstCount, nSrcCount, 1.0f, nDepthwise, sampler, activation ) {}
+	NNPrimitivePerceptron( const NNPrimitivePerceptron& pp )
+		: NNIdentityPerceptron( pp ) {}
+
+public:
+	// 入力バッファの準備
+	virtual InputBuffer PrepareInput
+		( const BufferArray& bufArray,
+			size_t iThisLayer, NNBuffer& bufInput0,
+			size_t iFirstInputLayer, NNLoopStream& stream ) ;
+	// 入力を複数バッファから直接行うか？
+	virtual bool IsPrimitiveMultiInput
+		( InputBuffer& inBuf, const BufferArray& bufArray,
+			size_t iThisLayer, NNBuffer& bufInput0,
+			size_t iFirstInputLayer, NNLoopStream& stream ) const ;
+
+} ;
+
+
+
+//////////////////////////////////////////////////////////////////////////////
+// 加算パーセプトロン
+//////////////////////////////////////////////////////////////////////////////
+
+class	NNPointwiseAddPerceptron	: public NNPrimitivePerceptron
+{
+public:
+	// 構築関数
+	NNPointwiseAddPerceptron( void ) {}
+	NNPointwiseAddPerceptron
+		( size_t nSrcCount,
+			std::shared_ptr<NNSamplingFilter> sampler,
+			std::shared_ptr<NNActivationFunction> activation )
+		: NNPrimitivePerceptron
+			( nSrcCount, nSrcCount*2, nSrcCount, sampler, activation ) {}
+	NNPointwiseAddPerceptron( const NNPointwiseAddPerceptron& pap )
+		: NNPrimitivePerceptron( pap ) {}
+
+public:
+	// パーセプトロンタイプ
+	static constexpr const char	PERCEPTRON_TYPE[] = "add" ;
+	virtual const char * GetPerceptronType( void ) const
+	{
+		return	PERCEPTRON_TYPE ;
+	}
+
+	// 入力を複数バッファから直接行うか？
+	virtual bool IsPrimitiveMultiInput
+		( InputBuffer& inBuf, const BufferArray& bufArray,
+			size_t iThisLayer, NNBuffer& bufInput0,
+			size_t iFirstInputLayer, NNLoopStream& stream ) const ;
+	// 予測処理
+	virtual void cudaPrediction
+		( CPUWorkArray& bufWorks, Buffer& bufThis,
+			const InputBuffer bufInput, NNLoopStream& stream, size_t xLeftBounds = 0 ) ;
+
+} ;
+
+
+
+//////////////////////////////////////////////////////////////////////////////
+// 乗算パーセプトロン
+//////////////////////////////////////////////////////////////////////////////
+
+class	NNPointwiseMulPerceptron	: public NNPrimitivePerceptron
+{
+public:
+	// 構築関数
+	NNPointwiseMulPerceptron( void ) {}
+	NNPointwiseMulPerceptron
+		( size_t nSrcCount,
+			std::shared_ptr<NNSamplingFilter> sampler,
+			std::shared_ptr<NNActivationFunction> activation )
+		: NNPrimitivePerceptron
+			( nSrcCount*2, nSrcCount*2, nSrcCount, sampler, activation ) {}
+	NNPointwiseMulPerceptron( const NNPointwiseMulPerceptron& pmp )
+		: NNPrimitivePerceptron( pmp ) {}
+
+public:
+	// パーセプトロンタイプ
+	static constexpr const char	PERCEPTRON_TYPE[] = "mul" ;
+	virtual const char * GetPerceptronType( void ) const
+	{
+		return	PERCEPTRON_TYPE ;
+	}
+
+	// 入力を複数バッファから直接行うか？
+	virtual bool IsPrimitiveMultiInput
+		( InputBuffer& inBuf, const BufferArray& bufArray,
+			size_t iThisLayer, NNBuffer& bufInput0,
+			size_t iFirstInputLayer, NNLoopStream& stream ) const ;
+	// 予測処理
+	virtual void cudaPrediction
+		( CPUWorkArray& bufWorks, Buffer& bufThis,
+			const InputBuffer bufInput, NNLoopStream& stream, size_t xLeftBounds = 0 ) ;
 
 } ;
 

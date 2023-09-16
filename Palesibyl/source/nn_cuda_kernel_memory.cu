@@ -64,6 +64,50 @@ void Palesibyl::nncuda_FillMemory
 }
 
 
+// 矩形の外側を値で埋める
+//////////////////////////////////////////////////////////////////////////////
+
+__global__ void nnkernel_FillMemory
+	( float * pDst, NNBufDim dimDst,
+		size_t xLeft, size_t yTop,
+		size_t xRight, size_t yBottom,
+		float fill, int xThreads, int yThreads )
+{
+	const int	tx = threadIdx.x ;
+	const int	ty = threadIdx.y ;
+	const int	bx = blockIdx.x * yThreads + ty ;
+	const int	by = blockIdx.y ;
+	const int	bi = bx + by * dimDst.x ;
+
+	if ( (bx < dimDst.x) && (by < dimDst.y) && (bi < dimDst.n)
+		&& ((bx < xLeft) || (bx >= xRight)
+			|| (by < yTop) || (by >= yBottom)) )
+	{
+		for ( int i = tx; i < dimDst.z; i += xThreads )
+		{
+			pDst[bi * dimDst.z + i] = fill ;
+		}
+	}
+}
+
+void Palesibyl::nncuda_FillExterior
+	( float * pDst, NNBufDim dimDst,
+		size_t xLeft, size_t yTop,
+		size_t xRight, size_t yBottom, float fill, cudaStream_t stream )
+{
+	dim3			threads = CalcThreadCount( dimDst ) ;
+	unsigned int	xThreads = threads.x ;
+	unsigned int	yThreads = threads.y ;
+
+	dim3	grid( ((unsigned int) dimDst.x + yThreads - 1) / yThreads,
+					(unsigned int) dimDst.y ) ;
+
+	nnkernel_FillMemory
+		<<<grid, threads, 0, stream>>>
+			( pDst, dimDst, xLeft, yTop, xRight, yBottom, fill, xThreads, yThreads ) ;
+}
+
+
 // サンプルごとに pMask[dimDst.z] で乗算する
 //////////////////////////////////////////////////////////////////////////////
 
@@ -138,6 +182,19 @@ public:
 } ;
 
 
+// 操作クラス（乗算）
+//////////////////////////////////////////////////////////////////////////////
+
+class	OperationMul
+{
+public:
+	static inline __device__ float Operate( float src1, float src2 )
+	{
+		return	src1 * src2 ;
+	}
+} ;
+
+
 // サンプルを移動しながらチャネルをコピー
 // （出力先のシフト元が範囲外の場合、ソースをシフトせずに操作）
 //////////////////////////////////////////////////////////////////////////////
@@ -162,11 +219,11 @@ template <class Op> __global__ void nncuda_ShiftOperationMemory
 	int	ySrc = by0 - yShift ;
 	if ( (xSrc < 0) || (xSrc >= dimSrc.x) )
 	{
-		xSrc = bx ;
+		xSrc = bx0 ;
 	}
 	if ( (ySrc < 0) || (ySrc >= dimSrc.y) )
 	{
-		ySrc = by ;
+		ySrc = by0 ;
 	}
 	const int	iSrc = (ySrc * dimSrc.x) + xSrc ;
 
@@ -246,4 +303,114 @@ void Palesibyl::nncuda_ShiftAddMemory
 				scaleFactor, xThreads, yThreads ) ;
 }
 
+
+
+// 単純計算
+//////////////////////////////////////////////////////////////////////////////
+
+template <class Op> __global__ void nncuda_PrimitiveOperation
+	( float * pDst, NNBufDim dimDst,
+		const float * pSrc0, NNBufDim dimSrc0,
+		size_t iChannel0, int xShift0, int yShift0,
+		const float * pSrc1, NNBufDim dimSrc1,
+		size_t iChannel1, int xShift1, int yShift1,
+		size_t xLeftBounds, int xThreads, int yThreads )
+{
+	const size_t	tx = threadIdx.x ;
+	const size_t	ty = threadIdx.y ;
+	const size_t	bx = blockIdx.x * yThreads + ty + xLeftBounds ;
+	const size_t	by = blockIdx.y ;
+	const size_t	bi = bx + by * dimDst.x ;
+
+	int	xSrc0 = bx - xShift0 ;
+	int	ySrc0 = by - yShift0 ;
+	if ( (xSrc0 < 0) || (xSrc0 >= dimSrc0.x) )
+	{
+		xSrc0 = bx ;
+	}
+	if ( (ySrc0 < 0) || (ySrc0 >= dimSrc0.y) )
+	{
+		ySrc0 = by ;
+	}
+	const int	iSrc0 = (ySrc0 * dimSrc0.x) + xSrc0 ;
+
+	int	xSrc1 = bx - xShift1 ;
+	int	ySrc1 = by - yShift1 ;
+	if ( (xSrc1 < 0) || (xSrc1 >= dimSrc1.x) )
+	{
+		xSrc1 = bx ;
+	}
+	if ( (ySrc1 < 0) || (ySrc1 >= dimSrc1.y) )
+	{
+		ySrc1 = by ;
+	}
+	const int	iSrc1 = (ySrc1 * dimSrc1.x) + xSrc1 ;
+
+	if ( (bx < dimDst.x) && (by < dimDst.y) && (bi < dimDst.n) )
+	{
+		for ( size_t iChannel = tx; iChannel < dimDst.z; iChannel += xThreads )
+		{
+			const int	iDst = bi * dimDst.z + iChannel ;
+
+			float	src0 = 0.0f ;
+			if ( (iChannel0 + iChannel) < dimSrc0.z )
+			{
+				src0 = pSrc0[iSrc0 * dimSrc0.z + iChannel0 + iChannel] ;
+			}
+			float	src1 = 0.0f ;
+			if ( (iChannel1 + iChannel) < dimSrc1.z )
+			{
+				src1 = pSrc1[iSrc1 * dimSrc1.z + iChannel1 + iChannel] ;
+			}
+
+			pDst[iDst] = Op::Operate( src0, src1 ) ;
+		}
+	}
+}
+
+void Palesibyl::nncuda_Primitive_Add
+	( float * pDst, NNBufDim dimDst,
+		const float * pSrc0, NNBufDim dimSrc0,
+		size_t iChannel0, int xShift0, int yShift0,
+		const float * pSrc1, NNBufDim dimSrc1,
+		size_t iChannel1, int xShift1, int yShift1,
+		size_t xLeftBounds, cudaStream_t stream )
+{
+	dim3			threads = CalcThreadCount( dimDst ) ;
+	unsigned int	xThreads = threads.x ;
+	unsigned int	yThreads = threads.y ;
+
+	dim3	grid( ((unsigned int) (dimDst.x - xLeftBounds) + yThreads - 1) / yThreads,
+					(unsigned int) dimDst.y ) ;
+
+	nncuda_PrimitiveOperation<OperationAdd>
+		<<<grid, threads, 0, stream>>>
+			( pDst, dimDst,
+				pSrc0, dimSrc0, iChannel0, xShift0, yShift0,
+				pSrc1, dimSrc1, iChannel1, xShift1, yShift1,
+				xLeftBounds, xThreads, yThreads ) ;
+}
+
+void Palesibyl::nncuda_Primitive_Multiply
+	( float * pDst, NNBufDim dimDst,
+		const float * pSrc0, NNBufDim dimSrc0,
+		size_t iChannel0, int xShift0, int yShift0,
+		const float * pSrc1, NNBufDim dimSrc1,
+		size_t iChannel1, int xShift1, int yShift1,
+		size_t xLeftBounds, cudaStream_t stream )
+{
+	dim3			threads = CalcThreadCount( dimDst ) ;
+	unsigned int	xThreads = threads.x ;
+	unsigned int	yThreads = threads.y ;
+
+	dim3	grid( ((unsigned int) (dimDst.x - xLeftBounds) + yThreads - 1) / yThreads,
+					(unsigned int) dimDst.y ) ;
+
+	nncuda_PrimitiveOperation<OperationMul>
+		<<<grid, threads, 0, stream>>>
+			( pDst, dimDst,
+				pSrc0, dimSrc0, iChannel0, xShift0, yShift0,
+				pSrc1, dimSrc1, iChannel1, xShift1, yShift1,
+				xLeftBounds, xThreads, yThreads ) ;
+}
 

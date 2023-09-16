@@ -260,6 +260,12 @@ public:
 			NNPerceptronPtr pLayer2, int iDelay2,
 			int xOffset2 = 0, int yOffset2 = 0,
 			const char * pszActivation = activLinear ) ;
+	NNPerceptronPtr AppendPointwiseAdd
+		( size_t nDstChannels,
+			NNPerceptronPtr pLayer1, int iDelay1, size_t iChannel1,
+			NNPerceptronPtr pLayer2, int iDelay2, size_t iChannel2,
+			int xOffset2 = 0, int yOffset2 = 0,
+			const char * pszActivation = activLinear ) ;
 
 	// チャネル毎の乗算結合レイヤー追加
 	NNPerceptronPtr AppendPointwiseMul

@@ -111,7 +111,10 @@ std::map< std::string, std::function< std::shared_ptr<NNPerceptron>() > >
 // 構築関数
 //////////////////////////////////////////////////////////////////////////////
 NNPerceptron::NNPerceptron( void )
-	: m_behavior( 0 ), m_bias( 0 ),
+	: m_behavior( 0 ),
+		m_xInvalidLeft( 0 ), m_yInvalidTop( 0 ),
+		m_xInvalidRight( 0 ), m_yInvalidBottom( 0 ),
+		m_bias( 0 ),
 		m_depthwise( 1 ), m_depthActiv( 1 ),
 		m_deltaFactor( 1.0f ), m_gradFactor( 1.0f ),
 		m_dropout( 0.0f ), m_adaOpt(adaOptNo), m_l2reg( 0.0f )
@@ -123,7 +126,10 @@ NNPerceptron::NNPerceptron
 		size_t nDepthwise, size_t nBias,
 		std::shared_ptr<NNSamplingFilter> sampler,
 		std::shared_ptr<NNActivationFunction> activation )
-	: m_behavior( 0 ), m_bias( 0 ),
+	: m_behavior( 0 ),
+		m_xInvalidLeft( 0 ), m_yInvalidTop( 0 ),
+		m_xInvalidRight( 0 ), m_yInvalidBottom( 0 ),
+		m_bias( 0 ),
 		m_depthwise( 1 ), m_depthActiv( 1 ),
 		m_deltaFactor( 1.0f ), m_gradFactor( 1.0f ),
 		m_dropout( 0.0f ), m_adaOpt(adaOptNo),m_l2reg( 0.0f )
@@ -134,6 +140,8 @@ NNPerceptron::NNPerceptron
 NNPerceptron::NNPerceptron( const NNPerceptron& nnp )
 	: m_matrix( nnp.m_matrix ),
 		m_behavior( 0 ),
+		m_xInvalidLeft( 0 ), m_yInvalidTop( 0 ),
+		m_xInvalidRight( 0 ), m_yInvalidBottom( 0 ),
 		m_bias( nnp.m_bias ),
 		m_depthwise( nnp.m_depthwise ),
 		m_depthActiv( nnp.m_depthActiv ),
@@ -374,6 +382,16 @@ bool NNPerceptron::IsDeltaCutOff( void ) const
 bool NNPerceptron::IsNoDropout( void ) const
 {
 	return	(m_behavior & behaviorNoDropout) != 0 ;
+}
+
+void NNPerceptron::SetLossDeltaInvalidMargin
+	( size_t xLeft, size_t yTop, size_t xRight, size_t yBottom )
+{
+	m_behavior |= behaviorInvalidMargin ;
+	m_xInvalidLeft = xLeft ;
+	m_yInvalidTop = yTop ;
+	m_xInvalidRight = xRight ;
+	m_yInvalidBottom = yBottom ;
 }
 
 // 正規化
@@ -685,6 +703,8 @@ void NNPerceptron::InitMake( void )
 	Register<NNDepthwisePerceptron>() ;
 	Register<NNFixedPerceptron>() ;
 	Register<NNIdentityPerceptron>() ;
+	Register<NNPointwiseAddPerceptron>() ;
+	Register<NNPointwiseMulPerceptron>() ;
 }
 
 // 関数生成
@@ -1230,6 +1250,8 @@ NNPerceptron::InputBuffer NNPerceptron::PrepareInput
 		size_t iFirstInputLayer, NNLoopStream& stream )
 {
 	InputBuffer	inBuf ;
+	inBuf.pInput = nullptr ;
+	inBuf.nMultiInput = 0 ;
 
 	std::shared_ptr<Buffer>	pbufThis = bufArray.at( iThisLayer ) ;
 	if ( pbufThis->inSrc == inputSrcOutput )
@@ -1914,7 +1936,18 @@ double NNPerceptron::cpuLossDelta
 
 	bufThis.bufInDelta.Commit() ;
 
-	stream.m_ploop.Loop( 0, dimOutput.y, [&]( size_t iThread, size_t y )
+	size_t	xLeft = 0 ;
+	size_t	xRight = dimOutput.x ;
+	size_t	yTop = 0 ;
+	size_t	yBottom = dimOutput.y ;
+	if ( m_behavior & behaviorInvalidMargin )
+	{
+		xLeft = m_xInvalidLeft ;
+		xRight -= __min( dimOutput.x, m_xInvalidRight ) ;
+		yTop = m_yInvalidTop ;
+		yBottom -= __min( dimOutput.y, m_yInvalidBottom ) ;
+	}
+	stream.m_ploop.Loop( yTop, yBottom, [&]( size_t iThread, size_t y )
 	{
 		const float *	pOutput = bufThis.bufOutput.GetConstBufferAt( 0, y ) ;
 		const float *	pInAct = bufThis.bufInAct.GetConstBufferAt( 0, y ) ;
@@ -1924,7 +1957,7 @@ double NNPerceptron::cpuLossDelta
 		const float *	pTeaching = bufTeaching.GetConstBufferAt( 0, y ) ;
 		const size_t	nDepthwise = GetActivationDepthwise() ;
 		double			loss = 0.0 ;
-		for ( size_t x = 0; x < dimOutput.x; x ++ )
+		for ( size_t x = xLeft; x < xRight; x ++ )
 		{
 			pLossFunc->cpuLossDelta
 				( pDelta, pInAct, pOutput, pTeaching, dimInAct.z, nDepthwise ) ;
@@ -1997,15 +2030,25 @@ double NNPerceptron::cudaLossDelta
 	bufThis.bufInDelta.CommitCuda() ;
 	bufTeaching.CommitCuda() ;
 
+	NNBuffer&	bufDstDelta =
+		(flagActDelta ? bufThis.bufPrevDelta : bufThis.bufInDelta) ;
 	pLossFunc->cudaLossDelta
-		( (flagActDelta ?
-				bufThis.bufPrevDelta.GetCudaPtr()
-				: bufThis.bufInDelta.GetCudaPtr()), dimInDelta,
+		( bufDstDelta.GetCudaPtr(), dimInDelta,
 			bufThis.bufInAct.GetCudaPtr(), dimInAct,
 			bufThis.bufOutput.GetCudaPtr(), dimOutput,
 			bufTeaching.GetCudaPtr(), dimTeaching,
 			GetActivationDepthwise(), stream.m_cudaStream ) ;
 	stream.m_cudaStream.VerifySync() ;
+
+	if ( m_behavior & behaviorInvalidMargin )
+	{
+		bufDstDelta.CudaFillExterior
+			( m_xInvalidLeft, m_yInvalidTop,
+				dimOutput.x - __min(dimOutput.x,m_xInvalidRight),
+				dimOutput.y - __min(dimOutput.y,m_yInvalidBottom),
+				0.0f, stream.m_cudaStream ) ;
+		stream.m_cudaStream.VerifySync() ;
+	}
 
 	if ( flagActDelta )
 	{
@@ -2833,5 +2876,229 @@ bool NNIdentityPerceptron::DeserializeExtendInfo( NNDeserializer & dsr )
 	}
 	return	true ;
 }
+
+
+
+//////////////////////////////////////////////////////////////////////////////
+// 単純計算パーセプトロン（ｎ入力１出力計算）
+//////////////////////////////////////////////////////////////////////////////
+
+// 入力バッファの準備
+//////////////////////////////////////////////////////////////////////////////
+NNPerceptron::InputBuffer NNPrimitivePerceptron::PrepareInput
+	( const NNPerceptron::BufferArray& bufArray,
+		size_t iThisLayer, NNBuffer& bufInput0,
+		size_t iFirstInputLayer, NNLoopStream& stream )
+{
+	InputBuffer	inBuf ;
+	if ( IsPrimitiveMultiInput
+		( inBuf, bufArray, iThisLayer, bufInput0, iFirstInputLayer, stream ) )
+	{
+		return	inBuf ;
+	}
+	return	NNIdentityPerceptron::PrepareInput
+			( bufArray, iThisLayer, bufInput0, iFirstInputLayer, stream ) ;
+}
+
+// 入力を複数バッファから直接行うか？
+//////////////////////////////////////////////////////////////////////////////
+bool NNPrimitivePerceptron::IsPrimitiveMultiInput
+	( NNPerceptron::InputBuffer& inBuf,
+		const NNPerceptron::BufferArray& bufArray,
+		size_t iThisLayer, NNBuffer& bufInput0,
+		size_t iFirstInputLayer, NNLoopStream& stream ) const
+{
+	if ( (m_connection.size() <= 1)
+		|| (m_connection.size() > MaxMultiInput) )
+	{
+		// チャネル数が範囲外の時は無効
+		return	false ;
+	}
+	std::shared_ptr<Buffer>	pbufThis = bufArray.at( iThisLayer ) ;
+	if ( pbufThis->forLearning )
+	{
+		// 予測時のみ特殊化によって高速化／学習時には無効
+		return	false ;
+	}
+	for ( size_t i = 0; i < m_connection.size(); i ++ )
+	{
+		const Connection&	cn = m_connection.at(i) ;
+		if ( cn.iLayer == conLayerNull )
+		{
+			return	false ;
+		}
+		NNBuffer *	pInputBuf = &bufInput0 ;
+		int			iDelay = 0 ;
+		if ( (cn.iLayer + (int) iFirstInputLayer <= (int) iThisLayer)
+			&& ((size_t) (iThisLayer - cn.iLayer) < bufArray.size()) )
+		{
+			size_t	iRefLayer = iThisLayer - cn.iLayer ;
+			if ( (cn.iDelay >= 1) && bufArray.at(iRefLayer)->bufDelay.IsCommitted() )
+			{
+				pInputBuf = &(bufArray.at(iRefLayer)->bufDelay) ;
+				iDelay = cn.iDelay ;
+			}
+			else
+			{
+				pInputBuf = &(bufArray.at(iRefLayer)->bufOutput) ;
+			}
+		}
+		if ( stream.m_useCuda )
+		{
+			pInputBuf->CommitCuda() ;
+		}
+		else
+		{
+			pInputBuf->Commit() ;
+		}
+		NNBufDim	dimRef = pInputBuf->GetSize() ;
+		inBuf.multi[i].pBuffer = pInputBuf ;
+		inBuf.multi[i].iChannel = cn.iChannel ;
+		inBuf.multi[i].nChannels = (cn.nChannels != 0) ? cn.nChannels : dimRef.z ;
+		inBuf.multi[i].xShift = iDelay - cn.xOffset ;
+		inBuf.multi[i].yShift = - cn.yOffset ;
+	}
+	inBuf.pInput = nullptr ;
+	inBuf.nMultiInput = m_connection.size() ;
+	return	true ;
+}
+
+
+
+
+//////////////////////////////////////////////////////////////////////////////
+// 加算パーセプトロン
+//////////////////////////////////////////////////////////////////////////////
+
+// 入力を複数バッファから直接行うか？
+//////////////////////////////////////////////////////////////////////////////
+bool NNPointwiseAddPerceptron::IsPrimitiveMultiInput
+	( NNPerceptron::InputBuffer& inBuf,
+		const NNPerceptron::BufferArray& bufArray,
+		size_t iThisLayer, NNBuffer& bufInput0,
+		size_t iFirstInputLayer, NNLoopStream& stream ) const
+{
+	if ( !stream.m_useCuda
+		|| (m_normalizer != nullptr)
+		|| (m_behavior & behaviorDisabled) )
+	{
+		return	false ;
+	}
+	if ( NNPrimitivePerceptron::IsPrimitiveMultiInput
+		( inBuf, bufArray, iThisLayer, bufInput0, iFirstInputLayer, stream ) )
+	{
+		return	(inBuf.nMultiInput == 2) ;
+	}
+	return	false ;
+}
+
+// 予測処理
+//////////////////////////////////////////////////////////////////////////////
+void NNPointwiseAddPerceptron::cudaPrediction
+	( NNPerceptron::CPUWorkArray& bufWorks,
+		NNPerceptron::Buffer& bufThis,
+		const InputBuffer bufInput,
+		NNLoopStream& stream, size_t xLeftBounds )
+{
+	if ( bufInput.nMultiInput == 2 )
+	{
+		const NNBufDim	dimInAct = bufThis.bufInAct.GetSize() ;
+		const NNBufDim	dimOutput = bufThis.bufOutput.GetSize() ;
+		const NNBufDim	dimInput0 = bufInput.multi[0].pBuffer->GetSize() ;
+		const NNBufDim	dimInput1 = bufInput.multi[1].pBuffer->GetSize() ;
+		bufThis.bufInAct.CommitCuda() ;
+		if ( bufThis.linearActivation )
+		{
+			assert( bufThis.bufInAct.IsEqualBuffer( bufThis.bufOutput ) ) ;
+		}
+		else
+		{
+			bufThis.bufOutput.CommitCuda() ;
+		}
+
+		nncuda_Primitive_Add
+			( bufThis.bufInAct.GetCudaPtr(), dimInAct,
+				bufInput.multi[0].pBuffer->GetCudaPtr(), dimInput0,
+				bufInput.multi[0].iChannel,
+				bufInput.multi[0].xShift, bufInput.multi[0].yShift,
+				bufInput.multi[1].pBuffer->GetCudaPtr(), dimInput1,
+				bufInput.multi[1].iChannel,
+				bufInput.multi[1].xShift, bufInput.multi[1].yShift,
+				xLeftBounds, stream.m_cudaStream ) ;
+		stream.m_cudaStream.VerifySync() ;
+
+		if ( !bufThis.linearActivation )
+		{
+			m_activation->cudaFunction
+				( bufThis.bufOutput.GetCudaPtr(), dimOutput,
+					bufThis.bufInAct.GetCudaPtr(), dimInAct,
+					xLeftBounds, GetActivationDepthwise(), stream.m_cudaStream ) ;
+			stream.m_cudaStream.VerifySync() ;
+		}
+		return ;
+	}
+	NNPrimitivePerceptron::cudaPrediction
+		( bufWorks, bufThis, bufInput, stream, xLeftBounds ) ;
+}
+
+
+
+//////////////////////////////////////////////////////////////////////////////
+// 乗算パーセプトロン
+//////////////////////////////////////////////////////////////////////////////
+
+// 入力を複数バッファから直接行うか？
+//////////////////////////////////////////////////////////////////////////////
+bool NNPointwiseMulPerceptron::IsPrimitiveMultiInput
+	( NNPerceptron::InputBuffer& inBuf,
+		const NNPerceptron::BufferArray& bufArray,
+		size_t iThisLayer, NNBuffer& bufInput0,
+		size_t iFirstInputLayer, NNLoopStream& stream ) const
+{
+	if ( !stream.m_useCuda
+		|| (m_normalizer != nullptr)
+		|| (m_behavior & behaviorDisabled) )
+	{
+		return	false ;
+	}
+	if ( NNPrimitivePerceptron::IsPrimitiveMultiInput
+		( inBuf, bufArray, iThisLayer, bufInput0, iFirstInputLayer, stream ) )
+	{
+		return	(inBuf.nMultiInput == 2) ;
+	}
+	return	false ;
+}
+
+// 予測処理
+//////////////////////////////////////////////////////////////////////////////
+void NNPointwiseMulPerceptron::cudaPrediction
+	( NNPerceptron::CPUWorkArray& bufWorks,
+		NNPerceptron::Buffer& bufThis,
+		const NNPerceptron::InputBuffer bufInput,
+		NNLoopStream& stream, size_t xLeftBounds )
+{
+	if ( bufInput.nMultiInput == 2 )
+	{
+		const NNBufDim	dimOutput = bufThis.bufOutput.GetSize() ;
+		const NNBufDim	dimInput0 = bufInput.multi[0].pBuffer->GetSize() ;
+		const NNBufDim	dimInput1 = bufInput.multi[1].pBuffer->GetSize() ;
+		bufThis.bufOutput.CommitCuda() ;
+
+		nncuda_Primitive_Multiply
+			( bufThis.bufOutput.GetCudaPtr(), dimOutput,
+				bufInput.multi[0].pBuffer->GetCudaPtr(), dimInput0,
+				bufInput.multi[0].iChannel,
+				bufInput.multi[0].xShift, bufInput.multi[0].yShift,
+				bufInput.multi[1].pBuffer->GetCudaPtr(), dimInput1,
+				bufInput.multi[1].iChannel,
+				bufInput.multi[1].xShift, bufInput.multi[1].yShift,
+				xLeftBounds, stream.m_cudaStream ) ;
+		stream.m_cudaStream.VerifySync() ;
+		return ;
+	}
+	NNPrimitivePerceptron::cudaPrediction
+		( bufWorks, bufThis, bufInput, stream, xLeftBounds ) ;
+}
+
 
 
