@@ -45,13 +45,16 @@ bool PalesibylBasicApp::AppShell::MakeOutputCSV( const char * pszFilePath )
 		for ( size_t i = 0; i < MLP().GetLayerCount(); i ++ )
 		{
 			NNPerceptronPtr	pLayer = MLP().GetLayerAt(i) ;
-			if ( pLayer->GetIdentity().empty() )
+			if ( !pLayer->IsMatrixFixed() )
 			{
-				*ofs << ",g" << i ;
-			}
-			else
-			{
-				*ofs << ",\"" << pLayer->GetIdentity() << "\"" ;
+				if ( pLayer->GetIdentity().empty() )
+				{
+					*ofs << ",g" << i ;
+				}
+				else
+				{
+					*ofs << ",\"" << pLayer->GetIdentity() << "\"" ;
+				}
 			}
 		}
 	}
@@ -127,7 +130,10 @@ void PalesibylBasicApp::AppShell::OnLearningProgress
 				*ofs << "," ;
 				for ( size_t i = 0; i < lpi.gradNorms.size(); i ++ )
 				{
-					*ofs << "," << (lpi.gradNorms.at(i) / (float) lpi.nGradNorm) ;
+					if ( !MLP().GetLayerAt(i)->IsMatrixFixed() )
+					{
+						*ofs << "," << (lpi.gradNorms.at(i) / (float) lpi.nGradNorm) ;
+					}
 				}
 			}
 			*ofs << std::endl ;
