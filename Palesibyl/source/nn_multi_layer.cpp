@@ -495,6 +495,16 @@ NNPerceptronPtr
 			NNPerceptronPtr pLayer1, int iDelay1,
 			NNPerceptronPtr pLayer2, int iDelay2, int xOffset2, int yOffset2 )
 {
+	return	AppendPointwiseMul
+		( nDstChannels, pLayer1, iDelay1, 0, pLayer2, iDelay2, 0, 0, 0 ) ;
+}
+
+NNPerceptronPtr NNPerceptronArray::AppendPointwiseMul
+	( size_t nDstChannels,
+		NNPerceptronPtr pLayer1, int iDelay1, size_t iChannel1,
+		NNPerceptronPtr pLayer2, int iDelay2, size_t iChannel2,
+		int xOffset2, int yOffset2 )
+{
 	NNPerceptronPtr	pLayer =
 		std::make_shared<NNPointwiseMulPerceptron>
 			( nDstChannels,
@@ -503,9 +513,10 @@ NNPerceptronPtr
 	AppendLayer( pLayer ) ;
 
 	pLayer->AddConnection
-		( LayerOffsetOf(pLayer1), iDelay1, 0, nDstChannels ) ;
+		( LayerOffsetOf(pLayer1), iDelay1, iChannel1, nDstChannels ) ;
 	pLayer->AddConnection
-		( LayerOffsetOf(pLayer2), iDelay2, 0, nDstChannels, xOffset2, yOffset2 ) ;
+		( LayerOffsetOf(pLayer2),
+			iDelay2, iChannel2, nDstChannels, xOffset2, yOffset2 ) ;
 
 	return	pLayer ;
 }

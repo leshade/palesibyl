@@ -275,8 +275,13 @@ public:
 			int xOffset2 = 0, int yOffset2 = 0 ) ;
 	NNPerceptronPtr AppendPointwiseMul
 		( size_t nDstChannels,
-			NNPerceptronPtr pLayer1, int iDelay1,
+			NNPerceptronPtr pLayer1, int iDelay1, 
 			NNPerceptronPtr pLayer2, int iDelay2,
+			int xOffset2 = 0, int yOffset2 = 0 ) ;
+	NNPerceptronPtr AppendPointwiseMul
+		( size_t nDstChannels,
+			NNPerceptronPtr pLayer1, int iDelay1, size_t iChannel1,
+			NNPerceptronPtr pLayer2, int iDelay2, size_t iChannel2,
 			int xOffset2 = 0, int yOffset2 = 0 ) ;
 
 	// μ, log(σ^2) から乱数 z～N(μ,σ) を生成する
