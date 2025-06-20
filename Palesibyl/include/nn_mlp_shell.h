@@ -22,6 +22,8 @@ public:
 	class	Iterator
 	{
 	public:
+		// 初期化処理
+		virtual void InitializeIterator( void ) = 0 ;
 		// 初めから
 		virtual void ResetIterator( void ) = 0 ;
 		// 次の入力データを取得する
@@ -419,6 +421,8 @@ public:
 			NNMLPShell::Iterator& iterGAN ) ;
 
 public:	// NNMLPShell::Iterator
+	// 初期化処理
+	virtual void InitializeIterator( void ) ;
 	// 初めから
 	virtual void ResetIterator( void ) ;
 	// 次の入力データを取得する
@@ -531,6 +535,8 @@ protected:
 	std::filesystem::path		m_pathSourceDir ;	// 入力元
 	std::filesystem::path		m_pathPairDir ;		// 教師又は出力先
 	bool						m_flagOutputPair ;	// 出力モード
+	bool						m_flagRandValidation ;
+	double						m_rateValidation ;
 	std::filesystem::path		m_pathPairFile ;
 
 public:
@@ -539,6 +545,8 @@ public:
 		( const char * pszSourceDir,
 			const char * pszPairDir, bool flagOutputPair,
 			bool flagRandValidation = false, double rateValidation = 0.25 ) ;
+	// 初期化処理
+	virtual void InitializeIterator( void ) ;
 
 public:
 	// 最後に取得した入力データに対応する予測データを出力する
@@ -614,6 +622,10 @@ class	NNMLPShellFileClassIterator
 protected:
 	std::filesystem::path		m_pathSourceDir ;	// 入力元
 	bool						m_flagPrediction ;	// 分類予測モード
+	std::string					m_strClassDir ;
+	bool						m_formatIndex ;
+	bool						m_flagRandValidation ;
+	double						m_rateValidation ;
 	std::vector<size_t>			m_classIndices ;	// ファイル毎の分類
 	std::string					m_strPairData ;
 
@@ -623,6 +635,8 @@ public:
 		( const char * pszSourceDir, bool flagPrediction,
 			const char * pszClassDir = nullptr, bool formatIndex = false,
 			bool flagRandValidation = false, double rateValidation = 0.25 ) ;
+	// 初期化処理
+	virtual void InitializeIterator( void ) ;
 
 public:
 	// 最後に取得した入力データに対応する予測データを出力する
@@ -669,6 +683,8 @@ public:
 		( std::shared_ptr<NNMLPShellFileClassIterator> pClassifier ) ;
 
 public:
+	// 初期化処理
+	virtual void InitializeIterator( void ) ;
 	// 初めから
 	virtual void ResetIterator( void ) ;
 	// 次の入力データを取得する

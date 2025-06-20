@@ -143,6 +143,8 @@ int PalesibylApp::RunLearning( void )
 	m_classifier.SetMLPConfig( m_cfgBuf ) ;
 
 	std::shared_ptr<NNMLPShell::Iterator>	pIter = MakeLearningIter() ;
+	pIter->InitializeIterator() ;
+
 	NNMLPShell::GANIterator *
 		pGanIter = dynamic_cast<NNMLPShell::GANIterator*>( pIter.get() ) ;
 	assert( pGanIter != nullptr ) ;

@@ -1290,6 +1290,12 @@ NNMLPShellGANClassifierIterator::NNMLPShellGANClassifierIterator
 	assert( m_pGANIter != nullptr ) ;
 }
 
+// 初期化処理
+//////////////////////////////////////////////////////////////////////////////
+void NNMLPShellGANClassifierIterator::InitializeIterator( void )
+{
+}
+
 // 初めから
 //////////////////////////////////////////////////////////////////////////////
 void NNMLPShellGANClassifierIterator::ResetIterator( void )
@@ -1626,12 +1632,23 @@ NNMLPShellFileIterator::NNMLPShellFileIterator
 	: NNMLPShellGenFileIterator( !flagOutputPair ),
 		m_pathSourceDir( pszSourceDir ),
 		m_pathPairDir( pszPairDir ),
-		m_flagOutputPair( flagOutputPair )
+		m_flagOutputPair( flagOutputPair ),
+		m_flagRandValidation( flagRandValidation ),
+		m_rateValidation( rateValidation )
 {
-	EnumerateFiles( pszSourceDir, [this]( const std::filesystem::path& pathFile )
+}
+
+// 初期化処理
+//////////////////////////////////////////////////////////////////////////////
+void NNMLPShellFileIterator::InitializeIterator( void )
+{
+	EnumerateFiles
+		( m_pathSourceDir.string().c_str(),
+			[this]( const std::filesystem::path& pathFile )
 	{
-		std::filesystem::path	pathPair = m_pathPairDir ;
-		pathPair /= pathFile.filename() ;
+		std::filesystem::path	pathPair = m_flagOutputPair
+												? MakeOutputPathOf(pathFile)
+												:  MakeTeacherPathOf(pathFile) ;
 		if ( m_flagOutputPair
 			|| (std::filesystem::exists( pathPair )
 				&& std::filesystem::is_regular_file( pathPair )) )
@@ -1640,15 +1657,15 @@ NNMLPShellFileIterator::NNMLPShellFileIterator
 		}
 	} ) ;
 	m_iValidation = m_files.size() ;
-	if ( !flagOutputPair )
+	if ( !m_flagOutputPair )
 	{
-		if ( flagRandValidation )
+		if ( m_flagRandValidation )
 		{
 			Shuffle( 0, m_files.size(),
 						[this]( size_t iShuffle1, size_t iShuffle2 )
 							{ ShuffleFile( iShuffle1, iShuffle2 ) ; }) ;
 		}
-		m_iValidation -= (size_t) floor( m_files.size() * rateValidation ) ;
+		m_iValidation -= (size_t) floor( m_files.size() * m_rateValidation ) ;
 	}
 
 	ResetIterator() ;
@@ -1867,30 +1884,42 @@ NNMLPShellFileClassIterator::NNMLPShellFileClassIterator
 			bool flagRandValidation, double rateValidation )
 	: NNMLPShellGenFileIterator( !flagPrediction ),
 		NNMLPShellFileClassifier( nullptr, formatIndex ),
-		m_pathSourceDir( pszSourceDir ), m_flagPrediction( flagPrediction )
+		m_pathSourceDir( pszSourceDir ), m_flagPrediction( flagPrediction ),
+		m_strClassDir( (pszClassDir != nullptr) ? pszClassDir : "" ),
+		m_formatIndex( formatIndex ),
+		m_flagRandValidation( flagRandValidation ),
+		m_rateValidation( rateValidation )
 {
 	assert( rateValidation < 1.0 ) ;
 	assert( rateValidation >= 0.0 ) ;
+}
+
+// 初期化処理
+//////////////////////////////////////////////////////////////////////////////
+void NNMLPShellFileClassIterator::InitializeIterator( void )
+{
 	std::vector<std::filesystem::path>	vValidations ;
 	std::vector<size_t>					vValidClass ;
-	if ( flagPrediction )
+	if ( m_flagPrediction )
 	{
 		// ファイル列挙
-		EnumerateFiles( pszSourceDir, [&]( const std::filesystem::path& pathFile )
+		EnumerateFiles
+			( m_pathSourceDir.string().c_str(),
+				[&]( const std::filesystem::path& pathFile )
 		{
 			assert( m_classIndices.size() == m_files.size() ) ;
 			m_files.push_back( pathFile ) ;
 			m_classIndices.push_back( classFalse ) ;
 		} ) ;
-		if ( pszClassDir != nullptr )
+		if ( !m_strClassDir.empty() )
 		{
-			DirectoryAsClassName( pszClassDir ) ;
+			DirectoryAsClassName( m_strClassDir.c_str() ) ;
 		}
 	}
 	else
 	{
 		// 分類名（ディレクトリ）列挙
-		DirectoryAsClassName( pszSourceDir ) ;
+		DirectoryAsClassName( m_pathSourceDir.string().c_str() ) ;
 
 		// 分類ごとの入力ファイルを列挙
 		for ( size_t iClass = classFirstIndex; iClass < m_classNames.size(); iClass ++ )
@@ -1906,7 +1935,7 @@ NNMLPShellFileClassIterator::NNMLPShellFileClassIterator
 				vFiles.push_back( pathFile ) ;
 			} ) ;
 
-			if ( flagRandValidation )
+			if ( m_flagRandValidation )
 			{
 				Shuffle( 0, vFiles.size(),
 					[&]( size_t iShuffle1, size_t iShuffle2 )
@@ -1917,7 +1946,7 @@ NNMLPShellFileClassIterator::NNMLPShellFileClassIterator
 						} ) ;
 			}
 			size_t	iValid = vFiles.size()
-							- (size_t) floor(vFiles.size() * rateValidation) ;
+							- (size_t) floor(vFiles.size() * m_rateValidation) ;
 			for ( size_t i = 0; i < iValid; i ++ )
 			{
 				assert( m_classIndices.size() == m_files.size() ) ;
@@ -2098,6 +2127,18 @@ NNMLPShellGANIterator::NNMLPShellGANIterator
 {
 }
 
+// 初期化処理
+//////////////////////////////////////////////////////////////////////////////
+void NNMLPShellGANIterator::InitializeIterator( void )
+{
+	NNMLPShell::Iterator *	pClassifierIter =
+				dynamic_cast<NNMLPShell::Iterator*>( m_pClassifier.get() ) ;
+	if ( pClassifierIter != nullptr )
+	{
+		pClassifierIter->InitializeIterator() ;
+	}
+}
+
 // 初めから
 //////////////////////////////////////////////////////////////////////////////
 void NNMLPShellGANIterator::ResetIterator( void )
@@ -2105,8 +2146,8 @@ void NNMLPShellGANIterator::ResetIterator( void )
 	assert( m_pClassifier != nullptr ) ;
 
 	m_classes.resize
-		( __max(m_pClassifier->GetClassCount()
-				- NNMLPShell::Classifier::classFirstIndex, 0) ) ;
+		( (size_t) __max((int) m_pClassifier->GetClassCount()
+							- NNMLPShell::Classifier::classFirstIndex, 0) ) ;
 	//
 	for ( size_t i = 0; i < m_classes.size(); i ++ )
 	{

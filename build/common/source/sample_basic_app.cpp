@@ -504,6 +504,7 @@ int PalesibylBasicApp::RunHelp( void )
 int PalesibylBasicApp::RunLearning( void )
 {
 	std::shared_ptr<NNMLPShell::Iterator>	pIter = MakeLearningIter() ;
+	pIter->InitializeIterator() ;
 
 	// モデル
 	if ( !m_shell.LoadModel( m_strModelFile.c_str() ) )
@@ -546,6 +547,7 @@ int PalesibylBasicApp::RunPrediction( void )
 	BeforePrediction() ;
 
 	std::shared_ptr<NNMLPShell::Iterator>	pIter = MakePredictiveIter() ;
+	pIter->InitializeIterator() ;
 
 	m_shell.DoPrediction( *pIter ) ;
 
