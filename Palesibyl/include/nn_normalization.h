@@ -74,9 +74,13 @@ public:
 		size_t GetCudaBufferBytes( void ) const ;
 	} ;
 
+	enum	HyperparamFlags
+	{
+		flagZeroBias	= 0x00000001,
+	} ;
 	struct	Hyperparameter
 	{
-		uint32_t	flags ;			// =0
+		uint32_t	flags ;			// enum HyperparamFlags
 		float		alpha ;			// [0,1) : 集計値のミニバッチ毎のスケール
 		float		beta ;			// [0,1) : 集計値のエポック毎のスケール
 		float		delta ;			// アフィン・パラメータ学習速度 : η*delta + deltac
@@ -162,7 +166,8 @@ public:
 		( GradientBuf& bufGrad, WorkBuf& bufWork ) ;
 	// 勾配をパラメータに更新する
 	virtual void AddGradient
-		( const GradientBuf& bufWork, float deltaRate = 0.01f ) ;
+		( const GradientBuf& bufWork,
+			float deltaRate = 0.01f, float l2reg = 0.0f ) ;
 	// エポック開始時の集計データスケーリング
 	virtual void OnBeginEpoch( void ) ;
 	// エポック終了時

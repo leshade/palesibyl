@@ -144,7 +144,7 @@ public:
 	void SetIdentity( const char * pszId ) ;
 
 	// データ初期化
-	void ClearAll( void ) ;
+	virtual void ClearAll( void ) ;
 
 	// 損失関数（デフォルトは出力レイヤーの活性化関数）
 	std::shared_ptr<NNLossFunction> GetLossFunction( void ) const ;
@@ -159,8 +159,8 @@ public:
 		( size_t nDstChannels, size_t nSrcChannels, size_t nBias,
 			std::shared_ptr<NNActivationFunction> activation,
 			std::shared_ptr<NNSamplingFilter> sampler = nullptr ) ;
-	size_t AppendLayer( NNPerceptronPtr pLayer ) ;
-	size_t InsertLayer( size_t iLayer, NNPerceptronPtr pLayer ) ;
+	virtual size_t AppendLayer( NNPerceptronPtr pLayer ) ;
+	virtual size_t InsertLayer( size_t iLayer, NNPerceptronPtr pLayer ) ;
 
 	// 畳み込みレイヤー追加
 	NNPerceptronPtr AppendConvLayer
@@ -305,9 +305,9 @@ public:
 			( size_t iLayer, const BufferArray& bufArray ) const ;
 
 	// レイヤー削除
-	NNPerceptronPtr RemoveLayerAt( size_t iLayer ) ;
+	virtual NNPerceptronPtr RemoveLayerAt( size_t iLayer ) ;
 	NNPerceptronPtr RemoveLayerOf( NNPerceptronPtr pLayer ) ;
-	void RemoveAllLayers( void ) ;
+	virtual void RemoveAllLayers( void ) ;
 
 	// レイヤー入力情報設定
 	void SetLayerInput
@@ -319,7 +319,7 @@ public:
 	int FindLayerAs( const char * pszId, size_t iFirst = 0 ) const ;
 	// レイヤー検索（最終レイヤーから pLayer へ AddConnection する時のレイヤーオフセット）
 	int LayerOffsetOf( NNPerceptronPtr pLayer ) const ;
-	int LayerOffsetOf( NNPerceptron * pLayer ) const ;
+	virtual int LayerOffsetOf( NNPerceptron * pLayer ) const ;
 	// レイヤー検索（pFromLayer から pLayer へ AddConnection する時のレイヤーオフセット）
 	// （pLayer == nullptr の時には、pLayer は入力データ）
 	int LayerOffsetFrom
@@ -477,6 +477,7 @@ public:
 		layerTeacher	= -2,
 		layerSource		= -1,
 		layerMLPFirst	= 0,
+		layerMLPMax		= 0x0FFFFFFF,
 	} ;
 
 	// 追加的な MLP パス
@@ -557,15 +558,18 @@ protected:
 	std::vector< std::shared_ptr<Pass> >	m_subpass ;
 	std::shared_ptr<NNEvaluationFunction>	m_evaluation ;
 
-	uint32_t	m_flagsMLP ;		// enum MLPFlag の組み合わせ
-	NNBufDim	m_dimInShape ;		// デフォルト入力サイズ（mlpFlagStream 時）
-	NNBufDim	m_dimInUnit ;		// 入力単位（mlpFlagStream 時）
+	uint32_t	m_flagsMLP ;			// enum MLPFlag の組み合わせ
+	NNBufDim	m_dimInShape ;			// デフォルト入力サイズ（mlpFlagStream 時）
+	NNBufDim	m_dimInUnit ;			// 入力単位（mlpFlagStream 時）
+
+	size_t		m_iNextAppendLayer ;	// 次に AppendLayer で追加するレイヤー位置
+	bool		m_autoTrackIndex ;		// 参照レイヤーの自動追従
 
 public:
 	// 構築関数
 	NNMultiLayerPerceptron( void ) ;
 	// データ初期化
-	void ClearAll( void ) ;
+	virtual void ClearAll( void ) ;
 	// 入力サイズ設定
 	void SetInputShape
 		( uint32_t flagsMLP,
@@ -577,9 +581,11 @@ public:
 	const NNBufDim& GetInputUnit( void ) const ;
 	// 学習の前に事前予測処理が必要な回数
 	size_t CountOfPrePrediction( void ) const ;
+
 	// 評価関数
 	void SetEvaluationFunction( std::shared_ptr<NNEvaluationFunction> pEvaluation ) ;
 	std::shared_ptr<NNEvaluationFunction> GetEvaluationFunction( void ) const ;
+
 	// 追加的なパス
 	void AddSubpass( std::shared_ptr<Pass> pass ) ;
 	std::shared_ptr<Pass> GetSubpassAs( const char * pszId ) const ;
@@ -598,6 +604,36 @@ public:
 	void AddLossGaussianKLDivergence
 		( NNPerceptronPtr pLayerMeanLnVar,
 			float lossFactor = 1.0f, float deltaFactor = 1.0f ) ;
+
+public:
+	// レイヤー追加
+	NNPerceptronPtr AppendLayer
+		( size_t nDstChannels, size_t nSrcChannels, size_t nBias = 1,
+			const char * pszActivation = activLinear,
+			std::shared_ptr<NNSamplingFilter> sampler = nullptr ) ;
+	NNPerceptronPtr AppendLayer
+		( size_t nDstChannels, size_t nSrcChannels, size_t nBias,
+			std::shared_ptr<NNActivationFunction> activation,
+			std::shared_ptr<NNSamplingFilter> sampler = nullptr ) ;
+	virtual size_t AppendLayer( NNPerceptronPtr pLayer ) ;
+	virtual size_t InsertLayer( size_t iLayer, NNPerceptronPtr pLayer ) ;
+	// レイヤー削除
+	virtual NNPerceptronPtr RemoveLayerAt( size_t iLayer ) ;
+	// レイヤー検索（最終レイヤーから pLayer へ AddConnection する時のレイヤーオフセット）
+	int LayerOffsetOf( NNPerceptronPtr pLayer ) const ;
+	virtual int LayerOffsetOf( NNPerceptron * pLayer ) const ;
+	// AppendLayer で挿入するレイヤー位置を設定（AppendLayer 毎に +1）
+	void SetAppendLayerIndex( size_t iLayer, bool autoTrackIndex = true ) ;
+	// 次に AppendLayer で挿入するレイヤー位置
+	size_t GetNextAppendLayerIndex( void ) const ;
+	// レイヤーの追加や削除を行う場合に、他のレイヤーの参照インデックスを自動的に追従するか？
+	void SetAutoTrackLayerIndex( bool autoTrackIndex ) ;
+	bool IsAutoTrackLayerIndex( void ) const ;
+protected:
+	// 指定位置にレイヤーを挿入する時の、他のレイヤーが参照するレイヤー位置の修正
+	void OffsetWhenInsertLayerAt( size_t iLayer, size_t nCount ) ;
+	// 指定位置のレイヤーを削除する時の、他のレイヤーが参照するレイヤー位置の修正
+	void OffsetWhenRemoveLayerAt( size_t iLayer, size_t nCount ) ;
 
 public:
 	// シリアライズ

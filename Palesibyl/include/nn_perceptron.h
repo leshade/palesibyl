@@ -201,6 +201,8 @@ public:
 		extendInfoGradientFactor		= 0x00000008,
 		extendInfoDropout				= 0x00000010,
 		extendInfoActivationDepthwise	= 0x00000020,
+		extendAdaptiveMatrixGrad0		= 0x00000100,
+		extendAdaptiveMatrixGrad1		= 0x00000200,
 		extendInfoIdentity				= 0x80000000,
 	} ;
 
@@ -253,6 +255,7 @@ public:
 	float									m_gradFactor ;	// 学習速度係数（レイヤー毎に調整したい場合）
 	AdaptiveOptimization					m_adaOpt ;		// 勾配更新最適化法
 	AdaptiveHyperparameter					m_adaParam ;
+	NNMatrix								m_matAdaOpt[2] ;
 	float									m_l2reg ;		// L2 正則化パラメータ
 	float									m_dropout ;		// ドロップアウト率 [0,1)
 	std::shared_ptr<NNSamplingFilter>		m_sampler ;		// サンプリング・フィルタ
@@ -642,16 +645,18 @@ public:
 class	NNIdentityPerceptron : public NNFixedPerceptron
 {
 protected:
-	float	m_scaler ;		// スカラ係数
+	float	m_scaler ;			// スカラ係数
+	size_t	m_unitDiagonal ;	// 対角化単位
 
 public:
 	// 構築関数
 	NNIdentityPerceptron( void ) ;
 	NNIdentityPerceptron
 		( size_t nDstCount, size_t nSrcCount,
-			float scaler, size_t nDepthwise,
+			float scaler, size_t nActivDepthwise,
 			std::shared_ptr<NNSamplingFilter> sampler,
-			std::shared_ptr<NNActivationFunction> activation ) ;
+			std::shared_ptr<NNActivationFunction> activation,
+			size_t nDiagonalUnit = 0 ) ;
 	NNIdentityPerceptron( const NNIdentityPerceptron& idp ) ;
 
 	// 対角化単位

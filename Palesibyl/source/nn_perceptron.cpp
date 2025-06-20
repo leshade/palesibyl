@@ -138,22 +138,29 @@ NNPerceptron::NNPerceptron
 }
 
 NNPerceptron::NNPerceptron( const NNPerceptron& nnp )
-	: m_matrix( nnp.m_matrix ),
-		m_behavior( 0 ),
+	: m_behavior( 0 ),
 		m_xInvalidLeft( 0 ), m_yInvalidTop( 0 ),
 		m_xInvalidRight( 0 ), m_yInvalidBottom( 0 ),
+		m_id( nnp.m_id ),
+		m_matrix( nnp.m_matrix ),
 		m_bias( nnp.m_bias ),
 		m_depthwise( nnp.m_depthwise ),
 		m_depthActiv( nnp.m_depthActiv ),
 		m_deltaFactor( nnp.m_deltaFactor ),
 		m_gradFactor( nnp.m_gradFactor ),
 		m_adaOpt( nnp.m_adaOpt ),
+		m_adaParam( nnp.m_adaParam ),
 		m_l2reg( nnp.m_l2reg ),
 		m_dropout( nnp.m_dropout ),
 		m_sampler( nnp.m_sampler ),
 		m_activation( nnp.m_activation ),
-		m_connection( nnp.m_connection )
+		m_connection( nnp.m_connection ),
+		m_generator( nnp.m_generator )
 {
+	for ( int i = 0; i < sizeof(m_matAdaOpt)/sizeof(m_matAdaOpt[0]); i ++ )
+	{
+		m_matAdaOpt[i] = nnp.m_matAdaOpt[i] ;
+	}
 }
 
 // 作成
@@ -459,6 +466,16 @@ void NNPerceptron::Serialize( NNSerializer& ser )
 							| extendInfoDropout
 							| extendInfoActivationDepthwise
 							| extendInfoIdentity ;
+	if ( (m_matAdaOpt[0].GetLineCount() == m_matrix.GetLineCount())
+		&& (m_matAdaOpt[0].GetColumnCount() == m_matrix.GetColumnCount()) )
+	{
+		exFlags |= extendAdaptiveMatrixGrad0 ;
+	}
+	if ( (m_matAdaOpt[1].GetLineCount() == m_matrix.GetLineCount())
+		&& (m_matAdaOpt[1].GetColumnCount() == m_matrix.GetColumnCount()) )
+	{
+		exFlags |= extendAdaptiveMatrixGrad1 ;
+	}
 	uint32_t	adaOpt = (uint32_t) m_adaOpt ;
 	float		l2reg = m_l2reg ;
 	float		delta = m_deltaFactor ;
@@ -470,6 +487,16 @@ void NNPerceptron::Serialize( NNSerializer& ser )
 	ser.Write( &exFlags, sizeof(uint32_t) ) ;
 	ser.Write( &adaOpt, sizeof(adaOpt) ) ;
 	ser.Write( &m_adaParam, sizeof(m_adaParam) ) ;
+	if ( exFlags & extendAdaptiveMatrixGrad0 )
+	{
+		ser.Write( m_matAdaOpt[0].GetConstArray(),
+					m_matrix.GetLength() * sizeof(float) ) ;
+	}
+	if ( exFlags & extendAdaptiveMatrixGrad1 )
+	{
+		ser.Write( m_matAdaOpt[1].GetConstArray(),
+					m_matrix.GetLength() * sizeof(float) ) ;
+	}
 	ser.Write( &l2reg, sizeof(l2reg) ) ;
 	ser.Write( &delta, sizeof(delta) ) ;
 	ser.Write( &grad, sizeof(grad) ) ;
@@ -570,6 +597,18 @@ bool NNPerceptron::Deserialize( NNDeserializer & dsr )
 					dsr.Read( &adaOpt, sizeof(adaOpt) ) ;
 					m_adaOpt = (AdaptiveOptimization) adaOpt ;
 					dsr.Read( &m_adaParam, sizeof(m_adaParam) ) ;
+				}
+				if ( exFlags & extendAdaptiveMatrixGrad0 )
+				{
+					m_matAdaOpt[0].Create( line, col + bias ) ;
+					dsr.Read( m_matAdaOpt[0].GetArray(),
+								m_matrix.GetLength() * sizeof(float) ) ;
+				}
+				if ( exFlags & extendAdaptiveMatrixGrad1 )
+				{
+					m_matAdaOpt[1].Create( line, col + bias ) ;
+					dsr.Read( m_matAdaOpt[1].GetArray(),
+								m_matrix.GetLength() * sizeof(float) ) ;
 				}
 				if ( exFlags & extendInfoL2regularization )
 				{
@@ -1035,6 +1074,7 @@ void NNPerceptron::PrepareBuffer
 		for ( auto cn : m_connection )
 		{
 			if ( ((int) iThisLayer >= cn.iLayer)
+				&& (cn.iLayer != conLayerNull)
 				&& ((size_t) (iThisLayer - cn.iLayer) < bufArray.size()) )
 			{
 				Buffer *	pRef = bufArray.at(iThisLayer - cn.iLayer).get() ;
@@ -1114,6 +1154,12 @@ void NNPerceptron::PrepareLossAndGradientBuf( LossAndGradientBuf& lagb ) const
 	{
 		lagb.matAdaOpt[i].Create( m_matrix.GetLineCount(), m_matrix.GetColumnCount() ) ;
 		lagb.matAdaOpt[i].InitDiagonal( 0.0f ) ;
+		//
+		if ( (m_matAdaOpt[i].GetLineCount() == m_matrix.GetLineCount())
+			&& (m_matAdaOpt[i].GetColumnCount() == m_matrix.GetColumnCount()) )
+		{
+			lagb.matAdaOpt[i] = m_matAdaOpt[i] ;
+		}
 	}
 
 	if ( m_normalizer != nullptr )
@@ -1949,12 +1995,12 @@ double NNPerceptron::cpuLossDelta
 	}
 	stream.m_ploop.Loop( yTop, yBottom, [&]( size_t iThread, size_t y )
 	{
-		const float *	pOutput = bufThis.bufOutput.GetConstBufferAt( 0, y ) ;
-		const float *	pInAct = bufThis.bufInAct.GetConstBufferAt( 0, y ) ;
+		const float *	pOutput = bufThis.bufOutput.GetConstBufferAt( xLeft, y ) ;
+		const float *	pInAct = bufThis.bufInAct.GetConstBufferAt( xLeft, y ) ;
 		float *			pDelta = flagActDelta
-									? bufThis.bufPrevDelta.GetBufferAt( 0, y )
-									: bufThis.bufInDelta.GetBufferAt( 0, y ) ;
-		const float *	pTeaching = bufTeaching.GetConstBufferAt( 0, y ) ;
+									? bufThis.bufPrevDelta.GetBufferAt( xLeft, y )
+									: bufThis.bufInDelta.GetBufferAt( xLeft, y ) ;
+		const float *	pTeaching = bufTeaching.GetConstBufferAt( xLeft, y ) ;
 		const size_t	nDepthwise = GetActivationDepthwise() ;
 		double			loss = 0.0 ;
 		for ( size_t x = xLeft; x < xRight; x ++ )
@@ -2512,7 +2558,7 @@ void NNPerceptron::LayerDeltaBack
 				continue ;
 			}
 			const Connection&	cn = m_connection.at(i) ;
-			if ( iThisLayer < cn.iLayer )
+			if ( (iThisLayer < cn.iLayer) || (cn.iLayer == conLayerNull) )
 			{
 				continue ;
 			}
@@ -2620,6 +2666,7 @@ void NNPerceptron::AddMatrixGradient
 		// Momentum
 		matGradient += laGradient.matAdaOpt[0] * m_adaParam.alpha ;
 		laGradient.matAdaOpt[0] = matGradient ;
+		m_matAdaOpt[0] = laGradient.matAdaOpt[0] ;
 		matGradient *= m_adaParam.delta ;
 	}
 	else if ( m_adaOpt == adaOptRMSProp )
@@ -2635,6 +2682,7 @@ void NNPerceptron::AddMatrixGradient
 						+ (1.0f - m_adaParam.beta) * pMatrix[i] * pMatrix[i] ;
 			pMatrix[i] *= m_adaParam.delta / (sqrt(pRMSProp[i]) + 1.0e-7f) ;
 		}
+		m_matAdaOpt[0] = laGradient.matAdaOpt[0] ;
 	}
 	else if ( m_adaOpt == adaOptAdam )
 	{
@@ -2656,18 +2704,21 @@ void NNPerceptron::AddMatrixGradient
 			const float	r = pAdam2[i] / (1.0f - m_adaParam.beta) ;
 			pMatrix[i] *= m_adaParam.delta * s / (sqrt(r) + 1.0e-7f) ;
 		}
+		m_matAdaOpt[0] = laGradient.matAdaOpt[0] ;
+		m_matAdaOpt[1] = laGradient.matAdaOpt[1] ;
 	}
 	deltaRate *= m_gradFactor ;
 
-	m_matrix -= matGradient * deltaRate
-				+ m_matrix * (2.0f * m_l2reg * deltaRate) ;
+	const float	l2regFactor = 2.0f * m_l2reg * deltaRate * scaleGradient ;
+	m_matrix -= matGradient * deltaRate + m_matrix * l2regFactor ;
 
 	Specialize( ) ;
 
 	if ( m_normalizer != nullptr )
 	{
 		m_normalizer->AddGradient
-			( laGradient.normGrad, deltaRate * sqrt(scaleGradient) ) ;
+			( laGradient.normGrad,
+				deltaRate * scaleGradient, m_l2reg ) ;
 	}
 }
 
@@ -2803,7 +2854,7 @@ void NNFixedPerceptron::cudaIntegrateMatrixGradient
 // 構築関数
 //////////////////////////////////////////////////////////////////////////////
 NNIdentityPerceptron::NNIdentityPerceptron( void )
-	: m_scaler( 1.0f )
+	: m_scaler( 1.0f ), m_unitDiagonal( 0 )
 {
 }
 
@@ -2811,14 +2862,16 @@ NNIdentityPerceptron::NNIdentityPerceptron
 	( size_t nDstCount, size_t nSrcCount,
 		float scaler, size_t nDepthwise,
 		std::shared_ptr<NNSamplingFilter> sampler,
-		std::shared_ptr<NNActivationFunction> activation )
-	: m_scaler( scaler )
+		std::shared_ptr<NNActivationFunction> activation,
+		size_t nDiagonalUnit )
+	: m_scaler( scaler ), m_unitDiagonal( nDiagonalUnit )
 {
 	Create( nDstCount, nSrcCount, nDepthwise, 0, sampler, activation ) ;
 }
 
 NNIdentityPerceptron::NNIdentityPerceptron( const NNIdentityPerceptron& idp )
-	: NNFixedPerceptron( idp ), m_scaler( idp.m_scaler )
+	: NNFixedPerceptron( idp ),
+		m_scaler( idp.m_scaler ), m_unitDiagonal( idp.m_unitDiagonal )
 {
 }
 
@@ -2826,6 +2879,10 @@ NNIdentityPerceptron::NNIdentityPerceptron( const NNIdentityPerceptron& idp )
 //////////////////////////////////////////////////////////////////////////////
 size_t NNIdentityPerceptron::GetDepthwise( void ) const
 {
+	if ( m_unitDiagonal != 0 )
+	{
+		return	m_unitDiagonal ;
+	}
 	const size_t	wMatrixCol = m_matrix.GetColumnCount() - GetBias() ;
 	const size_t	hMatrixLine = m_matrix.GetLineCount() ;
 	return	__min( wMatrixCol, hMatrixLine ) ;
@@ -2837,7 +2894,7 @@ void NNIdentityPerceptron::Specialize( void )
 {
 	const size_t	wMatrixCol = m_matrix.GetColumnCount() - GetBias() ;
 	const size_t	hMatrixLine = m_matrix.GetLineCount() ;
-	const size_t	nUnitSize = __min( wMatrixCol, hMatrixLine ) ;
+	const size_t	nUnitSize = GetDepthwise() ;
 
 	for ( size_t line = 0; line < hMatrixLine; line ++ )
 	{
@@ -2859,9 +2916,11 @@ void NNIdentityPerceptron::Specialize( void )
 //////////////////////////////////////////////////////////////////////////////
 void NNIdentityPerceptron::SerializeExtendInfo( NNSerializer& ser )
 {
-	uint32_t	zero = 0 ;
-	ser.Write( &zero, sizeof(zero) ) ;
+	uint32_t	flags = 1 ;
+	uint32_t	unit = (uint32_t) m_unitDiagonal ;
+	ser.Write( &flags, sizeof(flags) ) ;
 	ser.Write( &m_scaler, sizeof(m_scaler) ) ;
+	ser.Write( &unit, sizeof(unit) ) ;
 }
 
 // デシリアライズ
@@ -2870,9 +2929,15 @@ bool NNIdentityPerceptron::DeserializeExtendInfo( NNDeserializer & dsr )
 {
 	if ( dsr.GetChunkBytes() >= sizeof(uint32_t) + sizeof(m_scaler) )
 	{
-		uint32_t	zero = 0 ;
-		dsr.Read( &zero, sizeof(zero) ) ;
+		uint32_t	flags = 0 ;
+		uint32_t	unit = (uint32_t) m_unitDiagonal ;
+		dsr.Read( &flags, sizeof(flags) ) ;
 		dsr.Read( &m_scaler, sizeof(m_scaler) ) ;
+		if ( flags != 0 )
+		{
+			dsr.Read( &unit, sizeof(unit) ) ;
+			m_unitDiagonal = (size_t) unit ;
+		}
 	}
 	return	true ;
 }

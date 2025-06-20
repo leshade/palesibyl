@@ -1243,7 +1243,19 @@ bool NNMLPShell::IsCancel( void )
 	{
 		if ( _getch() == 0x1b )
 		{
-			return	true ;
+			Print( "\nDo you want to abort? (Y/N):" ) ;
+			for ( ; ; )
+			{
+				char	c = getchar() ;
+				if ( (c == 'N') || (c == 'n') )
+				{
+					break ;
+				}
+				if ( (c == 'Y') || (c == 'y') )
+				{
+					return	true ;
+				}
+			}
 		}
 	}
 	return	false ;
@@ -1571,6 +1583,23 @@ void NNMLPShellGenFileIterator::ShuffleFile( size_t iFile1, size_t iFile2 )
 	m_files.at(iFile2) = temp ;
 }
 
+// 入力元からファイルを読み込んでバッファに変換する
+//////////////////////////////////////////////////////////////////////////////
+std::shared_ptr<NNBuffer>
+	NNMLPShellGenFileIterator::LoadSourceFromFile( const std::filesystem::path& path )
+{
+	return	LoadFromFile( path ) ;
+}
+
+// 教師データをファイルを読み込んでバッファに変換する
+//////////////////////////////////////////////////////////////////////////////
+std::shared_ptr<NNBuffer>
+	NNMLPShellGenFileIterator::LoadTeachingFromFile
+		( const std::filesystem::path& path, std::shared_ptr<NNBuffer> pSource )
+{
+	return	LoadFromFile( path ) ;
+}
+
 // 読み込んだバッファを処理して次のデータとして設定する
 //////////////////////////////////////////////////////////////////////////////
 bool NNMLPShellGenFileIterator::SetNextDataOnLoaded
@@ -1656,7 +1685,7 @@ bool NNMLPShellFileIterator::PrepareNextDataAt( size_t iFile )
 											? MakeOutputPathOf(pathSource)
 											:  MakeTeacherPathOf(pathSource) ;
 
-	std::shared_ptr<NNBuffer>	pSource = LoadFromFile( pathSource ) ;
+	std::shared_ptr<NNBuffer>	pSource = LoadSourceFromFile( pathSource ) ;
 	std::shared_ptr<NNBuffer>	pTeaching ;
 	if ( pSource == nullptr )
 	{
@@ -1664,7 +1693,7 @@ bool NNMLPShellFileIterator::PrepareNextDataAt( size_t iFile )
 	}
 	if ( !m_flagOutputPair )
 	{
-		pTeaching = LoadFromFile( pathPair ) ;
+		pTeaching = LoadTeachingFromFile( pathPair, pSource ) ;
 		if ( pTeaching == nullptr )
 		{
 			return	false ;

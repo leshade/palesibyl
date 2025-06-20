@@ -35,6 +35,7 @@ inline __NN_CUDA_DEV__ float exp_sd( float x )
 
 inline float exp_s( float x )
 {
+	assert( x < EXP_MAX_CAP ) ;
 	return	(float) exp( __min( x, EXP_MAX_CAP ) ) ;
 }
 
@@ -43,7 +44,8 @@ enum	ArgmaxOutputChannels
 {
 	argmaxIndex	= 0,	// 最大指標
 	argmaxProbability,	// 最大確率
-	argmaxSumExp,		// 合計 exp(x(i))
+	argmaxSumExp,		// 合計 exp(x(i) - bias)
+	argmaxExpBias,		// exp(x(i)-bias) が exp で計算可能な範囲に収まるための bias
 	argmaxChannelCount,
 } ;
 
@@ -275,12 +277,13 @@ public:
 		{
 			const size_t	iOneHot = ((size_t) floor( pTeaching[z] )) * nDepthwise + z ;
 			//const size_t	iMax = (size_t) floor( pOutput[z * argmaxChannelCount + argmaxProbability] ) ;
-			const float		eSum = __max( pOutput[z * argmaxChannelCount + argmaxSumExp], 0.00001f ) ;
+			const float		eSum = __max( pOutput[z * argmaxChannelCount + argmaxSumExp], 0.0000001f ) ;
+			const float		bias = pOutput[z * argmaxChannelCount + argmaxExpBias] ;
 			assert( iOneHot < nCount ) ;
 			assert( (iOneHot % nDepthwise) == z ) ;
 			for ( size_t i = z; i < nCount; i += nDepthwise )
 			{
-				float	delta = exp_s( pInAct[i] ) / eSum ;
+				float	delta = exp_s( pInAct[i] - bias ) / eSum ;
 				if ( i == iOneHot )
 				{
 					delta -= 1.0f ;
@@ -297,8 +300,9 @@ public:
 	{
 		const size_t	zOut = iDstLossDelta % nDepthwise ;
 		const size_t	iOneHot = ((size_t) floor( pTeaching[zOut] )) * nDepthwise + zOut ;
-		const float		eSum = __max( pOutput[zOut * argmaxChannelCount + argmaxSumExp], 0.00001f ) ;
-		float	delta = exp_sd( pInAct[iDstLossDelta] ) / eSum ;
+		const float		eSum = __max( pOutput[zOut * argmaxChannelCount + argmaxSumExp], 0.0000001f ) ;
+		const float		bias = pOutput[zOut * argmaxChannelCount + argmaxExpBias] ;
+		float	delta = exp_sd( pInAct[iDstLossDelta] - bias ) / eSum ;	// = Softmax(x)[iDstLossDelta]
 		if ( iDstLossDelta == iOneHot )
 		{
 			delta -= 1.0f ;
@@ -383,7 +387,7 @@ public:
 				pLossDelta[i] = 0.0f ;
 			}
 			const size_t	iOneHot = ((size_t) floor( pTeaching[z] )) * nDepthwise + z ;
-			const float		eSum = __max( pOutput[z * argmaxChannelCount + argmaxSumExp], 0.00001f ) ;
+			const float		eSum = __max( pOutput[z * argmaxChannelCount + argmaxSumExp], 0.0000001f ) ;
 			assert( iOneHot < nCount ) ;
 			assert( (iOneHot % nDepthwise) == z ) ;
 			if ( iOneHot < nCount )
@@ -408,7 +412,7 @@ public:
 		const size_t	iOneHot = ((size_t) floor( pTeaching[zOut] )) * nDepthwise + zOut ;
 		const size_t	iMax = ((size_t) floor( pOutput[zOut * argmaxChannelCount + argmaxIndex] ))
 									* nDepthwise + zOut ;
-		const float		eSum = __max( pOutput[zOut * argmaxChannelCount + argmaxSumExp], 0.00001f ) ;
+		const float		eSum = __max( pOutput[zOut * argmaxChannelCount + argmaxSumExp], 0.0000001f ) ;
 		if ( iDstLossDelta == iOneHot )
 		{
 			return	exp_sd( pInAct[iDstLossDelta] ) / eSum - 1.0f ;
@@ -748,7 +752,7 @@ public:
 		{
 			d += pSrc[i] ;
 		}
-		return	pSrc[iDst] / __max( d, 0.00001f ) ;
+		return	pSrc[iDst] / __max( d, 0.0000001f ) ;
 	}
 	static inline void Activation
 		( float * pDst, const float * pSrc, size_t nSrcCount, size_t nDepthwise )
@@ -762,7 +766,7 @@ public:
 				d += e ;
 				pDst[i] = e ;
 			}
-			float	r = 1.0f / __max( d, 0.00001f ) ;
+			float	r = 1.0f / __max( d, 0.0000001f ) ;
 			for ( size_t i = z; i < nSrcCount; i += nDepthwise )
 			{
 				pDst[i] *= r ;
@@ -831,6 +835,11 @@ public:
 	{
 		return	true ;
 	}
+	static inline __NN_CUDA_DEV__ float kernelPreActivation
+		( const float * pSrc, size_t iSrc, size_t nSrcCount, size_t nDepthwise )
+	{
+		return	pSrc[iSrc] ;
+	}
 	static inline __NN_CUDA_DEV__ float kernelActivation
 		( size_t iDst, const float * pSrc, size_t nSrcCount, size_t nDepthwise )
 	{
@@ -839,15 +848,24 @@ public:
 		size_t			iMax = 0 ;
 		float			eMax = 0.0f ;
 		float			eSum = 0.0f ;
+		float			bias = 0.0f ;
 		for ( size_t i = iSrc; i < nSrcCount; i += nDepthwise )
 		{
 			float	src = pSrc[i] ;
-			if ( src > eMax )
+			if ( src - 10.0f > bias )
+			{
+				float	d = exp_sd( bias - (src - 10.0f) ) ;
+				eMax *= d ;
+				eSum *= d ;
+				bias = src - 10.0f ;
+			}
+			float	e = exp_sd( src - bias ) ;
+			if ( e > eMax )
 			{
 				iMax = i ;
-				eMax = src ;
+				eMax = e ;
 			}
-			eSum += src ;
+			eSum += e ;
 		}
 		switch ( type )
 		{
@@ -856,6 +874,9 @@ public:
 		case	argmaxProbability:
 			return	eMax / __max( eSum, 0.00001f ) ;
 		case	argmaxSumExp:
+			return	eSum ;
+		case	argmaxExpBias:
+			return	bias ;
 		default:
 			break ;
 		}
@@ -869,9 +890,18 @@ public:
 			size_t	iMax = z ;
 			float	eMax = 0.0f ;
 			float	eSum = 0.0f ;
+			float	bias = 0.0f ;
 			for ( size_t i = z; i < nSrcCount; i += nDepthwise )
 			{
-				float	e = (float) exp_s( pSrc[i] ) ;
+				float	src = pSrc[i] ;
+				if ( src - 10.0f > bias )
+				{
+					float	d = exp_s( bias - (src - 10.0f) ) ;
+					eMax *= d ;
+					eSum *= d ;
+					bias = src - 10.0f ;
+				}
+				float	e = (float) exp_s( src - bias ) ;
 				if ( e > eMax )
 				{
 					iMax = i ;
@@ -880,8 +910,9 @@ public:
 				eSum += e ;
 			}
 			pDst[zx3 + argmaxIndex]       = (float) ((iMax - z) / nDepthwise) ;
-			pDst[zx3 + argmaxProbability] = eMax / __max( eSum, 0.00001f ) ;
+			pDst[zx3 + argmaxProbability] = eMax / __max( eSum, 0.0000001f ) ;
 			pDst[zx3 + argmaxSumExp]      = eSum ;
+			pDst[zx3 + argmaxExpBias]     = bias ;
 		}
 	}
 	static inline void cudaActivation
@@ -904,7 +935,7 @@ public:
 			return	0.0f ;	// Positive Sampling (逆伝播出来ないので)
 		}
 		return	exp_sd( pSrc[iSrc] )
-					/ __max(pActOut[iDst*argmaxChannelCount+argmaxSumExp],0.00001f) ;	// == Softmax(x)[iSrc]
+					/ __max(pActOut[iDst*argmaxChannelCount+argmaxSumExp],0.0000001f) ;	// == Softmax(x)[iSrc]
 	}
 	static inline __NN_CUDA_DEV__ float kernelDifferential
 		( size_t iDst, const float * pSrc, size_t nSrcCount, size_t nDepthwise )
@@ -920,7 +951,7 @@ public:
 		{
 			const size_t	iMax = ((size_t) floor(pActOut[z * argmaxChannelCount + argmaxIndex]))
 									* nDepthwise + z ;
-			const float		eSum = __max( pActOut[z * argmaxChannelCount + argmaxSumExp], 0.00001f ) ;
+			const float		eSum = __max( pActOut[z * argmaxChannelCount + argmaxSumExp], 0.0000001f ) ;
 			for ( size_t i = z; i < nSrcCount; i += nDepthwise )
 			{
 				if ( iMax == i )

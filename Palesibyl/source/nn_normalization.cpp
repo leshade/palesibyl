@@ -105,15 +105,9 @@ void NNNormalizationFilter::CreateFilter( size_t zChannels )
 	m_aggregation.resize( nChannel ) ;
 	m_vecIndices.resize( zChannels ) ;
 
-	const float	s = (float) sqrt( 0.5f / (float) zChannels ) ;
-
-	std::random_device				random ;
-	std::mt19937					engine( random() ) ;
-	std::normal_distribution<float>	dist( s, s * 0.3f ) ;
-
 	for ( size_t i = 0; i < nChannel; i ++ )
 	{
-		m_params.at(i).scale = std::max( dist(engine), s * 0.1f ) ;
+		m_params.at(i).scale = 1.0 ;
 		m_params.at(i).shift = 0.0f ;
 	}
 
@@ -619,7 +613,7 @@ void NNNormalizationFilter::cudaIntegrateGradient
 // 勾配をパラメータに更新する
 //////////////////////////////////////////////////////////////////////////////
 void NNNormalizationFilter::AddGradient
-	( const NNNormalizationFilter::GradientBuf& bufGrad, float deltaRate )
+	( const NNNormalizationFilter::GradientBuf& bufGrad, float deltaRate, float l2reg )
 {
 	assert( m_params.size() >= bufGrad.vecGradients.size() ) ;
 
@@ -634,7 +628,12 @@ void NNNormalizationFilter::AddGradient
 			Parameter&	param = m_params.at(i) ;
 			const float	r = rate / (float) gradient.num ;
 			param.scale -= gradient.scale * r ;
-			param.shift -= gradient.shift * r ;
+			param.shift -= gradient.shift * r
+							+ param.shift * rate * l2reg ;
+		}
+		if ( m_hyparam.flags & flagZeroBias )
+		{
+			m_params.at(i).shift = 0.0f ;
 		}
 	}
 

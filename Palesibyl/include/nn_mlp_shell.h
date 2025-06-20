@@ -500,6 +500,12 @@ public:
 	virtual void ShuffleFile( size_t iFile1, size_t iFile2 ) ;
 	// 次のデータを用意する
 	virtual bool PrepareNextDataAt( size_t iFile ) = 0 ;
+	// 入力元からファイルを読み込んでバッファに変換する
+	virtual std::shared_ptr<NNBuffer>
+				LoadSourceFromFile( const std::filesystem::path& path ) ;
+	// 教師データをファイルを読み込んでバッファに変換する
+	virtual std::shared_ptr<NNBuffer> LoadTeachingFromFile
+		( const std::filesystem::path& path, std::shared_ptr<NNBuffer> pSource ) ;
 	// ファイルを読み込んでバッファに変換する
 	virtual std::shared_ptr<NNBuffer>
 				LoadFromFile( const std::filesystem::path& path ) = 0 ;

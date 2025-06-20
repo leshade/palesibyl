@@ -28,6 +28,7 @@ __global__ void nnkernel_Activation_Argmax
 
 	__shared__ float	eSum[cudaMaxThreadCount] ;
 	__shared__ float	eMax[cudaMaxThreadCount] ;
+	__shared__ float	eBias[cudaMaxThreadCount] ;
 	__shared__ int		zMax[cudaMaxThreadCount] ;
 	__shared__ float	vDst[cudaMaxThreadCount*argmaxChannelCount] ;
 
@@ -35,37 +36,53 @@ __global__ void nnkernel_Activation_Argmax
 	const int	iSrcBase = bi * dimSrc.z ;
 	eSum[ti] = 0.0f ;
 	eMax[ti] = 0.0f ;
+	eBias[ti] = 0.0f ;
 	zMax[ti] = 0 ;
-	for ( int zBase = 0; zBase < dimSrc.z; zBase += xThreads )
+	for ( int zBase = 0; zBase + tx < dimSrc.z; zBase += xThreads )
 	{
 		const int	z = zBase + tx ;
-		if ( z < dimSrc.z )
+		const float	src = pSrc[iSrcBase + z] ;
+		if ( src - 10.0f > eBias[ti] )
 		{
-			const float	e = exp_sd( pSrc[iSrcBase + z] ) ;
-			if ( e > eMax[ti] )
-			{
-				eMax[ti] = e ;
-				zMax[ti] = z ;
-			}
-			eSum[ti] += e ;
+			float	d = exp_sd( eBias[ti] - (src - 10.0f) ) ;
+			eMax[ti] *= d ;
+			eSum[ti] *= d ;
+			eBias[ti] = src - 10.0f ;
 		}
+		const float	e = exp_sd( src - eBias[ti] ) ;
+		if ( e > eMax[ti] )
+		{
+			eMax[ti] = e ;
+			zMax[ti] = z ;
+		}
+		eSum[ti] += e ;
 	}
 	__syncthreads() ;
 
 	if ( tx == 0 )
 	{
+		float	bias = eBias[ti] ;
+		for ( int i = 1; i < xThreads; i ++ )
+		{
+			bias = max( bias, eBias[ti + i] ) ;
+		}
+		int		iMax = zMax[ti] ;
+		float	flMax = 0.0f ;
+		float	flSum = 0.0f ;
 		for ( int i = 0; i < xThreads; i ++ )
 		{
-			if ( eMax[ti] < eMax[ti + i] )
+			float	d = exp_sd( eBias[ti + i] - bias ) ;
+			if ( flMax < eMax[ti + i] * d )
 			{
-				eMax[ti] = eMax[ti + i] ;
-				zMax[ti] = zMax[ti + i] ;
+				flMax = eMax[ti + i] * d ;
+				iMax = zMax[ti + i] ;
 			}
-			eSum[ti] += eSum[ti + i] ;
+			flSum += eSum[ti + i] * d ;
 		}
-		vDst[ty * argmaxChannelCount + argmaxIndex] = (float) zMax[ti] ;
-		vDst[ty * argmaxChannelCount + argmaxProbability] = eMax[ti] / max( eSum[ti], 0.00001f ) ;
-		vDst[ty * argmaxChannelCount + argmaxSumExp] = eSum[ti] ;
+		vDst[ty * argmaxChannelCount + argmaxIndex] = (float) iMax ;
+		vDst[ty * argmaxChannelCount + argmaxProbability] = flMax / max( flSum, 0.0000001f ) ;
+		vDst[ty * argmaxChannelCount + argmaxSumExp] = flSum ;
+		vDst[ty * argmaxChannelCount + argmaxExpBias] = bias ;
 	}
 	__syncthreads() ;
 
@@ -89,6 +106,8 @@ void Palesibyl::nncuda_Activation_Argmax
 	unsigned int	xThreads = (unsigned int) (cudaMaxThreadCount
 								/ min(dimDst.x - xLeftBounds, cudaMaxThreadCount/64)) ;
 	unsigned int	yThreads = (unsigned int) cudaMaxThreadCount / xThreads ;
+
+	assert( xThreads >= argmaxChannelCount ) ;
 
 	dim3	threads( xThreads, yThreads ) ;
 	dim3	grid( ((unsigned int) (dimDst.x - xLeftBounds) + yThreads - 1) / yThreads,

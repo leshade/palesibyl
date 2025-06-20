@@ -496,7 +496,8 @@ NNPerceptronPtr
 			NNPerceptronPtr pLayer2, int iDelay2, int xOffset2, int yOffset2 )
 {
 	return	AppendPointwiseMul
-		( nDstChannels, pLayer1, iDelay1, 0, pLayer2, iDelay2, 0, 0, 0 ) ;
+		( nDstChannels, pLayer1, iDelay1, 0,
+						pLayer2, iDelay2, 0, xOffset2, yOffset2 ) ;
 }
 
 NNPerceptronPtr NNPerceptronArray::AppendPointwiseMul
@@ -1488,17 +1489,25 @@ void NNPerceptronArray::GradientReflection
 	( NNPerceptronArray::LossAndGradientArray& lagArray, float deltaRate )
 {
 	// 全てのレイヤーの勾配の Frobenius ノルム計算
+	std::vector<float>	vNorms ;
 	float	maxNorm = 0.0f ;
 	size_t	nCount = 0 ;
+	vNorms.resize( GetLayerCount() ) ;
 	for ( size_t i = 0; i < GetLayerCount(); i ++ )
 	{
 		const size_t	nGradient = lagArray.at(i).nGradient ;
 		if ( nGradient > 0 )
 		{
 			const float	norm = (lagArray.at(i).matGradient
-										/ (float) nGradient).FrobeniusNorm() ;
-			maxNorm = __max( maxNorm, norm * GetLayerAt(i)->GetGradientFactor() ) ;
+										/ (float) nGradient).FrobeniusNorm()
+								* GetLayerAt(i)->GetGradientFactor() ;
+			vNorms.at(i) = norm ;
+			maxNorm = __max( maxNorm, norm ) ;
 			nCount ++ ;
+		}
+		else
+		{
+			vNorms.at(i) = 0.0f ;
 		}
 	}
 	// 勾配が大きい場合、暴れてしまうのを抑制（特に 適用最適化無しの SGD の場合）
@@ -1506,9 +1515,11 @@ void NNPerceptronArray::GradientReflection
 								(lagArray.bufNormMax * 0.9f + maxNorm * 0.1f) ) ;
 
 	// 勾配反映
-	const float	scaleGrad = 1.0f / __max( lagArray.bufNormMax, 1.0f ) ;
+	const float	scaleNormLimit = 0.1f ;
+	const float	scaleMinGrad = 1.0f ;
 	for ( size_t i = 0; i < GetLayerCount(); i ++ )
 	{
+		const float	scaleGrad = __min( (scaleNormLimit / vNorms.at(i)), scaleMinGrad ) ;
 		GetLayerAt(i)->AddMatrixGradient( lagArray.at(i), deltaRate, scaleGrad ) ;
 	}
 }
@@ -1556,7 +1567,9 @@ double NNPerceptronArray::GetAverageLoss
 NNMultiLayerPerceptron::NNMultiLayerPerceptron( void )
 	: m_flagsMLP( 0 ),
 		m_dimInShape( 0, 0, 0 ),
-		m_dimInUnit( 0, 0, 0 )
+		m_dimInUnit( 0, 0, 0 ),
+		m_iNextAppendLayer( 0 ),
+		m_autoTrackIndex( false )
 {
 }
 
@@ -1726,7 +1739,7 @@ void NNMultiLayerPerceptron::AddLossGaussianKLDivergence
 	AddSubpass( lossForMean ) ;
 
 	// log(σ^2) に関する Gaussian KL Divergence
-	std::shared_ptr<Pass>	lossForLnVar= std::make_shared<Pass>() ;
+	std::shared_ptr<Pass>	lossForLnVar = std::make_shared<Pass>() ;
 	lossForLnVar->m_dsc.iSourceLayer = layerMLPFirst + FindLayer( pLayerLnVar ) ;
 	lossForLnVar->m_dsc.iTeachingLayer = lossForLnVar->m_dsc.iSourceLayer ;
 	assert( lossForLnVar->m_dsc.iSourceLayer != layerMLPFirst - 1 ) ;
@@ -1768,7 +1781,7 @@ void NNMultiLayerPerceptron::AddLossGaussianKLDivergence
 	AddSubpass( lossForMean ) ;
 
 	// log(σ^2) に関する Gaussian KL Divergence
-	std::shared_ptr<Pass>	lossForLnVar= std::make_shared<Pass>() ;
+	std::shared_ptr<Pass>	lossForLnVar = std::make_shared<Pass>() ;
 	lossForLnVar->m_dsc.iSourceLayer = layerMLPFirst + FindLayer( pLayerMeanLnVar ) ;
 	lossForLnVar->m_dsc.iTeachingLayer = lossForLnVar->m_dsc.iSourceLayer ;
 	assert( lossForLnVar->m_dsc.iSourceLayer != layerMLPFirst - 1 ) ;
@@ -1785,6 +1798,191 @@ void NNMultiLayerPerceptron::AddLossGaussianKLDivergence
 	lossForLnVar->SetLossFunction
 		( std::make_shared<NNLossVarianceForKLDivergence>(lpLnVar) ) ;
 	AddSubpass( lossForLnVar ) ;
+}
+
+// レイヤー追加
+//////////////////////////////////////////////////////////////////////////////
+NNPerceptronPtr NNMultiLayerPerceptron::AppendLayer
+	( size_t nDstChannels, size_t nSrcChannels, size_t nBias,
+		const char * pszActivation, std::shared_ptr<NNSamplingFilter> sampler )
+{
+	return	NNPerceptronArray::AppendLayer
+				( nDstChannels, nSrcChannels, nBias, pszActivation, sampler ) ;
+}
+
+NNPerceptronPtr NNMultiLayerPerceptron::AppendLayer
+	( size_t nDstChannels, size_t nSrcChannels, size_t nBias,
+		std::shared_ptr<NNActivationFunction> activation,
+		std::shared_ptr<NNSamplingFilter> sampler )
+{
+	return	NNPerceptronArray::AppendLayer
+				( nDstChannels, nSrcChannels, nBias, activation, sampler ) ;
+}
+
+size_t NNMultiLayerPerceptron::AppendLayer( NNPerceptronPtr pLayer )
+{
+	if ( m_iNextAppendLayer >= m_mlp.size() )
+	{
+		m_iNextAppendLayer = NNPerceptronArray::AppendLayer( pLayer ) ;
+		return	m_iNextAppendLayer ++ ;
+	}
+	return	InsertLayer( m_iNextAppendLayer ++, pLayer ) ;
+}
+
+size_t NNMultiLayerPerceptron::InsertLayer( size_t iLayer, NNPerceptronPtr pLayer )
+{
+	if ( m_autoTrackIndex )
+	{
+		OffsetWhenInsertLayerAt( iLayer, 1 ) ;
+	}
+	return	NNPerceptronArray::InsertLayer( iLayer, pLayer ) ;
+}
+
+// レイヤー削除
+//////////////////////////////////////////////////////////////////////////////
+NNPerceptronPtr NNMultiLayerPerceptron::RemoveLayerAt( size_t iLayer )
+{
+	if ( m_autoTrackIndex )
+	{
+		OffsetWhenRemoveLayerAt( iLayer, 1 ) ;
+	}
+	return	NNPerceptronArray::RemoveLayerAt( iLayer ) ;
+}
+
+// レイヤー検索（最終レイヤーから pLayer へ AddConnection する時のレイヤーオフセット）
+//////////////////////////////////////////////////////////////////////////////
+int NNMultiLayerPerceptron::LayerOffsetOf( NNPerceptronPtr pLayer ) const
+{
+	return	LayerOffsetOf( pLayer.get() ) ;
+}
+
+int NNMultiLayerPerceptron::LayerOffsetOf( NNPerceptron * pLayer ) const
+{
+	assert( m_iNextAppendLayer <= m_mlp.size() ) ;
+	return	(int) m_iNextAppendLayer - 1 - FindLayer( pLayer ) ;
+}
+
+// AppendLayer で挿入するレイヤー位置を設定（AppendLayer 毎に +1）
+//////////////////////////////////////////////////////////////////////////////
+void NNMultiLayerPerceptron::SetAppendLayerIndex( size_t iLayer, bool autoTrackIndex )
+{
+	m_iNextAppendLayer = iLayer ;
+	m_autoTrackIndex = autoTrackIndex ;
+}
+
+// 次に AppendLayer で挿入するレイヤー位置
+//////////////////////////////////////////////////////////////////////////////
+size_t NNMultiLayerPerceptron::GetNextAppendLayerIndex( void ) const
+{
+	return	m_iNextAppendLayer ;
+}
+
+// レイヤーの追加や削除を行う場合に、他のレイヤーの参照インデックスを自動的に追従するか？
+//////////////////////////////////////////////////////////////////////////////
+void NNMultiLayerPerceptron::SetAutoTrackLayerIndex( bool autoTrackIndex )
+{
+	m_autoTrackIndex = autoTrackIndex ;
+}
+
+bool NNMultiLayerPerceptron::IsAutoTrackLayerIndex( void ) const
+{
+	return	m_autoTrackIndex ;
+}
+
+// 指定位置にレイヤーを挿入する時の、他のレイヤーが参照するレイヤー位置の修正
+//////////////////////////////////////////////////////////////////////////////
+void NNMultiLayerPerceptron::OffsetWhenInsertLayerAt( size_t iLayer, size_t nCount )
+{
+	for ( size_t i = 0; i < GetLayerCount(); i ++ )
+	{
+		NNPerceptronPtr	pLayer = GetLayerAt( i ) ;
+		for ( size_t j = 0; j < pLayer->m_connection.size(); j ++ )
+		{
+			NNPerceptron::Connection&	cn = pLayer->m_connection.at(j) ;
+			if ( i < iLayer )
+			{
+				if ( (cn.iLayer != NNPerceptron::conLayerNull)
+					&& (cn.iLayer < 0)
+					&& (i - cn.iLayer >= iLayer) )
+				{
+					cn.iLayer -= (int32_t) nCount ;
+				}
+			}
+			else
+			{
+				if ( (cn.iLayer != NNPerceptron::conLayerNull)
+					&& (cn.iLayer > 0)
+					&& (i < iLayer + cn.iLayer) )
+				{
+					cn.iLayer += (int32_t) nCount ;
+				}
+			}
+		}
+	}
+	for ( size_t i = 0; i < m_subpass.size(); i ++ )
+	{
+		std::shared_ptr<Pass>	pPass = m_subpass.at(i) ;
+		if ( (pPass->m_dsc.iSourceLayer >= layerMLPFirst)
+			&& (pPass->m_dsc.iSourceLayer <= layerMLPMax)
+			&& (pPass->m_dsc.iSourceLayer - layerMLPFirst >= iLayer) )
+		{
+			pPass->m_dsc.iSourceLayer += (int32_t) nCount ;
+		}
+		if ( (pPass->m_dsc.iTeachingLayer >= layerMLPFirst)
+			&& (pPass->m_dsc.iTeachingLayer <= layerMLPMax)
+			&& (pPass->m_dsc.iTeachingLayer - layerMLPFirst >= iLayer) )
+		{
+			pPass->m_dsc.iTeachingLayer += (int32_t) nCount ;
+		}
+	}
+}
+
+// 指定位置のレイヤーを削除する時の、他のレイヤーが参照するレイヤー位置の修正
+//////////////////////////////////////////////////////////////////////////////
+void NNMultiLayerPerceptron::OffsetWhenRemoveLayerAt( size_t iLayer, size_t nCount )
+{
+	for ( size_t i = 0; i < GetLayerCount(); i ++ )
+	{
+		NNPerceptronPtr	pLayer = GetLayerAt( i ) ;
+		for ( size_t j = 0; j < pLayer->m_connection.size(); j ++ )
+		{
+			NNPerceptron::Connection&	cn = pLayer->m_connection.at(j) ;
+			if ( i < iLayer )
+			{
+				if ( (cn.iLayer != NNPerceptron::conLayerNull)
+					&& (cn.iLayer < 0)
+					&& (i - cn.iLayer >= iLayer + nCount) )
+				{
+					cn.iLayer += (int32_t) nCount ;
+				}
+			}
+			else
+			{
+				if ( (cn.iLayer != NNPerceptron::conLayerNull)
+					&& (cn.iLayer > 0)
+					&& (i < iLayer + nCount + cn.iLayer) )
+				{
+					cn.iLayer -= (int32_t) nCount ;
+				}
+			}
+		}
+	}
+	for ( size_t i = 0; i < m_subpass.size(); i ++ )
+	{
+		std::shared_ptr<Pass>	pPass = m_subpass.at(i) ;
+		if ( (pPass->m_dsc.iSourceLayer >= layerMLPFirst)
+			&& (pPass->m_dsc.iSourceLayer <= layerMLPMax)
+			&& (pPass->m_dsc.iSourceLayer - layerMLPFirst >= iLayer + nCount) )
+		{
+			pPass->m_dsc.iSourceLayer -= (int32_t) nCount ;
+		}
+		if ( (pPass->m_dsc.iTeachingLayer >= layerMLPFirst)
+			&& (pPass->m_dsc.iTeachingLayer <= layerMLPMax)
+			&& (pPass->m_dsc.iTeachingLayer - layerMLPFirst >= iLayer + nCount) )
+		{
+			pPass->m_dsc.iTeachingLayer -= (int32_t) nCount ;
+		}
+	}
 }
 
 // シリアライズ

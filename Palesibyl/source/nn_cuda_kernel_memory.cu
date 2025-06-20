@@ -67,7 +67,7 @@ void Palesibyl::nncuda_FillMemory
 // 矩形の外側を値で埋める
 //////////////////////////////////////////////////////////////////////////////
 
-__global__ void nnkernel_FillMemory
+__global__ void nnkernel_FillExterior
 	( float * pDst, NNBufDim dimDst,
 		size_t xLeft, size_t yTop,
 		size_t xRight, size_t yBottom,
@@ -102,7 +102,7 @@ void Palesibyl::nncuda_FillExterior
 	dim3	grid( ((unsigned int) dimDst.x + yThreads - 1) / yThreads,
 					(unsigned int) dimDst.y ) ;
 
-	nnkernel_FillMemory
+	nnkernel_FillExterior
 		<<<grid, threads, 0, stream>>>
 			( pDst, dimDst, xLeft, yTop, xRight, yBottom, fill, xThreads, yThreads ) ;
 }
