@@ -259,11 +259,12 @@ public:
 			{
 				ySum += pInAct[iOneHot] ;
 			}
+			const float		bias = pOutAct[z * argmaxChannelCount + argmaxExpBias] ;
 			for ( size_t i = z; i < nCount; i += nDepthwise )
 			{
-				eSum += exp_s( pInAct[i] ) ;
+				eSum += exp_s( pInAct[i] - bias ) ;
 			}
-			loss += log( eSum ) - ySum ;
+			loss += log( eSum ) + bias - ySum ;
 		}
 		return	(float) loss ;
 	}

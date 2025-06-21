@@ -171,7 +171,7 @@ void NNPerceptron::Create
 		std::shared_ptr<NNSamplingFilter> sampler,
 		std::shared_ptr<NNActivationFunction> activation )
 {
-	float	s = (float) sqrt( 2.0f / (float) __max(nSrcCount+nDstCount,1) ) ;
+	float	s = (float) sqrt( 1.0f / (float) __max(nSrcCount+nDstCount,1) ) ;
 	m_matrix.Create( nDstCount, nSrcCount + nBias ) ;
 	m_matrix.RandomizeNormalDist( 0.0f, s ) ;
 	m_bias = nBias ;
