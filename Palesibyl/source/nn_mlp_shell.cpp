@@ -97,6 +97,7 @@ void NNMLPShell::StaticRelase( void )
 // 構築関数
 //////////////////////////////////////////////////////////////////////////////
 NNMLPShell::NNMLPShell( void )
+	: m_listener( nullptr )
 {
 }
 
@@ -518,6 +519,7 @@ void NNMLPShell::DoLearningEpoch
 	{
 		// バッチ収集
 		LoadTrainingData( context, iter, param.nMiniBatchCount ) ;
+		NotifyEvent( eventOnLoadedTrainingData, context, lpi ) ;
 
 		lpi.nMiniBatchCount = context.sources.size() ;
 		if ( context.sources.size() == 0 )
@@ -528,6 +530,7 @@ void NNMLPShell::DoLearningEpoch
 
 		// バッファ準備
 		PrepareBuffer( context ) ;
+		NotifyEvent( eventOnPreparedBuffer, context, lpi ) ;
 
 		if ( pForwardMLP != nullptr )
 		{
@@ -538,12 +541,15 @@ void NNMLPShell::DoLearningEpoch
 
 		// 繰り返し
 		OnBeginMiniBatch( context, true ) ;
+		NotifyEvent( eventOnBeginMiniBatch, context, lpi ) ;
 		OnLearningProgress( learningStartMiniBatch, lpi ) ;
 
 		for ( lpi.iSubLoop = 0; lpi.iSubLoop < param.nSubLoopCount; lpi.iSubLoop ++ )
 		{
 			// 学習
+			NotifyEvent( eventBeforeLearning, context, lpi ) ;
 			LearnOnce( context, lpi, pForwardMLP, pForwardContext ) ;
+			NotifyEvent( eventAfterLearning, context, lpi ) ;
 			//
 			if ( context.flagCanceled )
 			{
@@ -556,10 +562,12 @@ void NNMLPShell::DoLearningEpoch
 
 			// 勾配反映
 			GradientReflection( context, lpi ) ;
+			NotifyEvent( eventOnGradientReflection, context, lpi ) ;
 		}
 
 		// 次のバッチへ
 		OnEndMiniBatch( context ) ;
+		NotifyEvent( eventOnEndMiniBatch, context, lpi ) ;
 
 		lpi.iInBatch ++ ;
 		lpi.iSubLoop = param.nSubLoopCount ;
@@ -1043,6 +1051,34 @@ NNMultiLayerPerceptron::VerifyError
 {
 	NNBufDim	dimTeaching( 0, 0, 0 ) ;
 	return	VerifyDataShape( bufArrays, dimTeaching, dimSource0 ) ;
+}
+
+// イベント・リスナ呼び出し
+//////////////////////////////////////////////////////////////////////////////
+void NNMLPShell::NotifyEvent
+	( NNMLPShell::LearningListenerEvent reason,
+			NNMLPShell::LearningContext& context,
+			NNMLPShell::LearningProgressInfo& lpi )
+{
+	if ( m_listener != nullptr )
+	{
+		m_listener->OnEvent( reason, context, lpi ) ;
+	}
+}
+
+// 学習リスナ関連付け
+//////////////////////////////////////////////////////////////////////////////
+void NNMLPShell::AttachLearningListener( LearningListener * pListener )
+{
+	m_listener = pListener ;
+}
+
+// 学習リスナ解除
+//////////////////////////////////////////////////////////////////////////////
+void NNMLPShell::DettachLearningListener( LearningListener * pListener )
+{
+	assert( m_listener == pListener ) ;
+	m_listener = nullptr ;
 }
 
 // 学習進捗表示

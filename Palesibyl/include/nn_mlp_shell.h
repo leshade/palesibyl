@@ -225,10 +225,32 @@ public:
 		bool						flagCanceled ;		// キャンセルフラグ
 	} ;
 
+	// 学習コンテキスト・イベント
+	enum	LearningListenerEvent
+	{
+		eventOnLoadedTrainingData,
+		eventOnPreparedBuffer,
+		eventOnBeginMiniBatch,
+		eventBeforeLearning,
+		eventAfterLearning,
+		eventOnGradientReflection,
+		eventOnEndMiniBatch,
+	} ;
+	// 学習コンテキスト・リスナ
+	class	LearningListener
+	{
+	public:
+		virtual void OnEvent
+			( LearningListenerEvent reason,
+				LearningContext& context, LearningProgressInfo& lpi ) = 0 ;
+	} ;
+
 protected:
 	NNMultiLayerPerceptron					m_mlp ;
 	ShellConfig								m_config ;
 	NNMultiLayerPerceptron::BufferConfig	m_bufConfig ;
+
+	LearningListener *						m_listener ;
 
 	std::mutex								m_mutex ;
 
@@ -329,6 +351,16 @@ public:
 		VerifyDataShape
 			( const NNMultiLayerPerceptron::BufferArrays& bufArrays,
 				const NNBufDim& dimSource0 ) const ;
+
+public:
+	// イベント・リスナ呼び出し
+	virtual void NotifyEvent
+		( LearningListenerEvent reason,
+			LearningContext& context, LearningProgressInfo& lpi ) ;
+	// 学習リスナ関連付け
+	void AttachLearningListener( LearningListener * pListener ) ;
+	// 学習リスナ解除
+	void DettachLearningListener( LearningListener * pListener ) ;
 
 public:
 	// 学習進捗表示
